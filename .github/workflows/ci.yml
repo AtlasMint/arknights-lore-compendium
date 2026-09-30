@@ -1,0 +1,36 @@
+name: CI
+on: [push, pull_request]
+
+jobs:
+  backend:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python: ["3.12", "3.14"]  # oldest supported, and the newest, which has no mwparserfromhell wheel
+    runs-on: ${{ matrix.os }}
+    env:
+      WITH_EXTENSION: "0"  # see requirements.txt
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install -r requirements.txt
+      - run: python -m tests.test_v0
+
+  frontend:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+      - run: bun run build
