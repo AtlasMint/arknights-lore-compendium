@@ -1,0 +1,61 @@
+:root {
+  color-scheme: light dark;
+  font-family: system-ui, sans-serif;
+  --node: #4c78a8;
+  --seed: #e4572e;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  height: 100svh;
+}
+
+form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #8884;
+}
+
+svg {
+  display: block;
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+.links line {
+  stroke: #8888;
+}
+
+.node circle {
+  fill: var(--node);
+  stroke: Canvas;
+}
+
+.node.seed circle {
+  fill: var(--seed);
+  stroke: CanvasText;
+  stroke-width: 2px;
+}
+
+.node text {
+  font-size: 10px;
+  fill: CanvasText;
+  stroke: Canvas;
+  stroke-width: 3px;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
+.node.seed text {
+  font-size: 13px;
+  font-weight: 600;
+}
