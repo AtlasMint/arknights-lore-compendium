@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Wiki cache and term index (rebuilt from the wiki)
+data/
