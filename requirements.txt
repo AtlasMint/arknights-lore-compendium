@@ -1,0 +1,4 @@
+flask==3.1.3
+mwparserfromhell==0.7.2  # no wheel for Python 3.14 or Windows ARM: WITH_EXTENSION=0 installs its pure-Python parser instead of compiling C
+networkx==3.7
+scipy==1.18.1  # networkx.pagerank runs on scipy
