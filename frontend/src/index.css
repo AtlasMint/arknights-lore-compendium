@@ -15,13 +15,50 @@ body {
   height: 100svh;
 }
 
-form {
+header {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #8884;
+}
+
+header > * {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  border-bottom: 1px solid #8884;
+  gap: 0.5rem 0.75rem;
+}
+
+.drop {
+  padding: 0.5rem 0.75rem;
+  border: 1px dashed #888;
+  border-radius: 6px;
+}
+
+.preview {
+  max-height: 4.5rem;
+  border-radius: 4px;
+}
+
+.reading {
+  flex: 1 1 20rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.chip {
+  padding: 0.15rem 0.6rem;
+  border: 1px dashed #888;
+  border-radius: 999px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border: 1px solid var(--seed);
+  background: color-mix(in srgb, var(--seed) 25%, Canvas);
 }
 
 svg {
