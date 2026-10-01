@@ -16,3 +16,4 @@ SECTION_BONUS = 1            # added per section in which both ends of an edge a
 
 READER_URL = "http://127.0.0.1:11434"  # Ollama, which serves the model that reads screenshots
 READER_MODEL = "qwen3.5:2b"  # ollama pull qwen3.5:2b; qwen3.5:4b reads a little better and takes longer
+MAX_UPLOAD_MB = 10           # largest screenshot /analyze takes

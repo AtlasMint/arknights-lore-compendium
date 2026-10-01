@@ -63,6 +63,12 @@ def categories(title):
     return _load()[2].get(title, [])
 
 
+def suggest(prefix, limit=10):
+    """Titles and redirects that start with `prefix`, in any case, for autocomplete. Subpages are left out."""
+    prefix = prefix.casefold()
+    return sorted(t for t in _load()[0] if t.casefold().startswith(prefix) and "/" not in t)[:limit]
+
+
 if __name__ == "__main__":
     pages, redirects = build()
     print(f"Indexed {pages} pages and {redirects} redirects into {config.DB_PATH}")
