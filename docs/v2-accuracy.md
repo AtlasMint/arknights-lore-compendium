@@ -33,7 +33,7 @@ Make the screenshot-to-keywords step reliable, and measure it instead of eyeball
 ### Swappable reading engines
 - [ ] `vision/paddle_reader.py`: PaddleOCR as a free, local option
 - [ ] Choose the engine in `config.py`
-- [ ] Compare Gemini and PaddleOCR on accuracy, speed, and cost
+- [ ] Compare the Qwen3.5 reader and PaddleOCR on accuracy, speed, and memory
 
 ### Ranking
 - [ ] Score each keyword: match confidence × importance (PageRank from the global graph)

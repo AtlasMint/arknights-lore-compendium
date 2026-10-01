@@ -1,18 +1,21 @@
 # arknights-lore-compendium
-Gets the Arknights wiki and builds a network graph of characters, factions, and lore terms connected to a set of keywords.
+Gets the Arknights wiki and builds a network graph of characters, factions, and lore terms connected to a set of keywords, typed in or read from a game screenshot.
 
 ## Features
 
-- Type seed terms (e.g. `Amiya, Reunion`) and get the lore pages around them: links followed 2 hops out, weighted, and pruned to the 150 most relevant with PageRank that restarts at the seeds.
+- Upload a story dialog screenshot: an open vision model running on your machine reads the speaker and text, the term index picks out the wiki pages they name, and you review those keywords as chips before building the graph.
+- Or type seed terms (e.g. `Amiya, Reunion`) and get the lore pages around them: links followed 1 hop out by default (up to 3), weighted, and pruned to the 150 most relevant with PageRank that restarts at the seeds.
 - A term index of every wiki page title and redirect, so any name or alternate name resolves to its page (`Reunion Movement` → `Reunion`).
 - Operator pages are gameplay stats, so their lore comes from the `/Story` and `/File` subpages. Stages, mechanics, items, staff and media pages are filtered out by wiki category.
 - Fetched pages are cached in SQLite for 7 days. A cold build takes about 8 seconds, a repeat under 1 second.
 - A CLI, a Flask JSON API, and a React + D3 force graph (drag, zoom, seeds highlighted).
+- Each screenshot is read once: readings are cached by the image's SHA-256, so uploading it again is instant.
 
 ## Tech stack
 
 - **Data:** MediaWiki API of the [Arknights Terra Wiki](https://arknights.wiki.gg) (wiki.gg)
 - **Backend:** Python, Flask, `mwparserfromhell`, NetworkX (+ SciPy for PageRank), SQLite
+- **Screenshots:** [Qwen3.5-2B](https://huggingface.co/Qwen/Qwen3.5-2B) (Apache-2.0), served on your machine by [Ollama](https://ollama.com) and called over REST with the standard library
 - **Frontend:** React 19, Vite 8, D3 7, with bun as the package manager
 
 ## Prerequisites
@@ -21,6 +24,7 @@ Gets the Arknights wiki and builds a network graph of characters, factions, and 
 - Python 3.12 or newer
 - [bun](https://bun.sh) for the frontend
 - Internet access to arknights.wiki.gg
+- [Ollama](https://ollama.com), for screenshots only, with about 3 GB of disk for the model
 
 ## Quick start
 
@@ -46,6 +50,15 @@ $env:WITH_EXTENSION = "0"; pip install -r requirements.txt
 
 `WITH_EXTENSION=0` lets pip install `mwparserfromhell` without a C compiler where it has no prebuilt wheel (Python 3.14, Windows on ARM). It then uses its pure-Python parser, which is about 1.5× slower and still under a second per graph. Where a wheel exists, the setting does nothing.
 
+For screenshots, install Ollama and pull the model (2.7 GB). On macOS:
+
+```bash
+brew install ollama && brew services start ollama
+ollama pull qwen3.5:2b
+```
+
+On Windows, `winget install Ollama.Ollama`; on Linux, `curl -fsSL https://ollama.com/install.sh | sh`. Then `ollama pull qwen3.5:2b` on either. Ollama keeps running in the background, and the model loads on the first screenshot.
+
 Then, on any OS, with the venv active:
 
 ```bash
@@ -53,7 +66,7 @@ Then, on any OS, with the venv active:
 python -m backend.index.build_index
 
 # Command line
-python -m backend.cli --seeds "Amiya,Reunion" --depth 2
+python -m backend.cli --seeds "Amiya,Reunion" --depth 1
 python -m backend.cli --lookup "Reunion Movement"
 
 # Web UI: the API in one terminal...
@@ -64,7 +77,7 @@ bun install
 bun run dev
 ```
 
-Settings (wiki URL, depth, max nodes, request delay, cache expiry, edge weights) live in `backend/config.py`. Rerun `build_index` now and then to pick up new wiki pages.
+Settings (wiki URL, depth, max nodes, request delay, cache expiry, edge weights, reader model, upload size limit) live in `backend/config.py`. Rerun `build_index` now and then to pick up new wiki pages.
 
 Platform notes:
 
@@ -75,36 +88,48 @@ Platform notes:
 
 ## API endpoints
 
-`GET /graph?seeds=Amiya,Reunion&depth=2` returns:
+`GET /graph?seeds=Amiya,Reunion&depth=1` returns:
 
 ```json
 {"nodes": [{"id": "Amiya", "seed": true, "score": 0.144, "categories": ["5-star", "Amiya", "Caster", "Core Caster", "Rhodes Island"]}, ...],
  "links": [{"source": "Kal'tsit", "target": "Amiya", "weight": 59}, ...]}
 ```
 
-It takes 1–10 comma-separated seeds and a depth from 1 to 3. Seeds that aren't wiki pages or redirects get a 400 with `{"error": "Not on the wiki: ..."}`.
+It takes 1–10 comma-separated seeds and a depth from 1 to 3 (default 1). Seeds that aren't wiki pages or redirects get a 400 with `{"error": "Not on the wiki: ..."}`.
+
+`POST /analyze` takes a multipart form with one `image` field (PNG, JPEG or WebP, up to 10 MB). The frontend scales screenshots to 1280 px on the long side before uploading, since the reader's time grows with pixels: a phone screenshot went from 19 s to 5 s with the text still legible. It returns:
+
+```json
+{"speaker": "Amiya", "text": "Doctor, the Reunion Movement has taken Chernobog.",
+ "keywords": ["Amiya", "Reunion", "Chernobog"], "needs_context": ["Doctor"]}
+```
+
+`keywords` are wiki pages named by the speaker or written capitalized in the dialog. `needs_context` holds matches written in lower case (`the silence here`) and `Doctor`, which could be ordinary words; the UI shows them unselected. The file type is checked from its bytes, not its name. A wrong type gets a 415, an oversized file a 413, and a failed read (Ollama not running, model not pulled) a 502, each with an `error` message.
+
+`GET /terms?prefix=kal` returns up to 10 titles and redirects starting with the prefix, for autocomplete: `["Kal", "Kal'tsit", ...]`.
 
 ## Repository structure
 
 ```
-backend/    engine: scraper/ (wiki API + cache), parser/, index/ (term index), graph/, cli.py, app.py (Flask), config.py
+backend/    engine: scraper/ (wiki API + cache), parser/, index/ (term index, keyword matcher), graph/, vision/ (screenshot reading), cli.py, app.py (Flask), config.py
 frontend/   React + Vite + D3 force graph
-tests/      offline test of the engine
-docs/       per-version plans
-data/       SQLite page cache and term index (created on first run, not committed)
+tests/      offline tests, one per version
+docs/       plans for versions still to build; archive/ holds the finished ones with their outcome notes
+data/       SQLite page cache, term index and screenshot readings (created on first run, not committed)
 ```
 
 ## Testing
 
 ```bash
 python -m tests.test_v0
+python -m tests.test_v1
 ```
 
-The test runs against a small fake wiki, so it needs no network.
+Both run against a small fake wiki, and `test_v1` stubs the reader, so they need no network and no Ollama.
 
 ## CI
 
-GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push and pull request. It runs the test on Windows, macOS and Linux with Python 3.12 and 3.14, and lints and builds the frontend on all three. CI never calls the wiki.
+GitHub Actions ([.github/workflows/ci.yml](.github/workflows/ci.yml)) runs on every push and pull request. It runs the tests on Windows, macOS and Linux with Python 3.12 and 3.14, and lints and builds the frontend on all three. CI never calls the wiki or Ollama.
 
 # Roadmap
 
@@ -138,8 +163,9 @@ Before touching screenshots, we download every wiki page title plus its redirect
 
 | Version | Theme | Outcome |
 |---|---|---|
-| [v0](docs/v0-foundation.md) | Foundation | Type keywords, get a graph |
-| [v1](docs/v1-screenshot-mvp.md) | Screenshot MVP | Upload a screenshot, get a graph |
+| [v0](docs/archive/v0-foundation.md) | Foundation | Type keywords, get a graph |
+| [v1](docs/archive/v1-screenshot-mvp.md) | Screenshot MVP | Upload a screenshot, get a graph |
+| [v1.1](docs/archive/v1.1-local-reader.md) | Local reader | Screenshots read by an open model on your machine, no API key |
 | [v2](docs/v2-accuracy.md) | Accuracy | Keywords are right without manual fixes |
 | [v3](docs/v3-richer-lore.md) | Richer lore | Labeled, spoiler-safe lore maps |
 | [v4](docs/v4-polish-and-reach.md) | Polish and reach | Deployed, shareable, multi-server |
@@ -150,7 +176,7 @@ Before touching screenshots, we download every wiki page title plus its redirect
 |---|---|
 | Data source | MediaWiki API ([Arknights Terra Wiki](https://arknights.wiki.gg) on wiki.gg, chosen in v0) |
 | Wikitext parsing | `mwparserfromhell` |
-| Text from images | Gemini Flash (v1), PaddleOCR as an alternative (v2) |
+| Text from images | Qwen3.5-2B through Ollama (v1.1), PaddleOCR as an alternative (v2) |
 | Term matching | Exact match (v1), `rapidfuzz` fuzzy match (v2) |
 | Graph | NetworkX |
 | Cache / index | SQLite |

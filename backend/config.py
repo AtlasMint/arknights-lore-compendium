@@ -1,4 +1,4 @@
-"""Settings for the wiki client, cache and graph. Starting values from docs/v0-foundation.md."""
+"""Settings for the wiki client, cache and graph. Starting values from docs/archive/v0-foundation.md."""
 from pathlib import Path
 
 WIKI_API = "https://arknights.wiki.gg/api.php"
