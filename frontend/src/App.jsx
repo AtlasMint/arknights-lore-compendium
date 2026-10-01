@@ -11,7 +11,7 @@ export default function App() {
   const [suggestions, setSuggestions] = useState([])
   const [preview, setPreview] = useState(null)
   const [reading, setReading] = useState(null)
-  const [depth, setDepth] = useState(2)
+  const [depth, setDepth] = useState(1)
   const [graph, setGraph] = useState(null)
   const [status, setStatus] = useState('')
 
