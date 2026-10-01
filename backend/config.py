@@ -13,3 +13,6 @@ MAX_NODES = 150              # final graph size, and the most pages expanded per
 
 RECIPROCAL_BONUS = 2         # added to both directions when two pages link each other
 SECTION_BONUS = 1            # added per section in which both ends of an edge are linked
+
+READER_URL = "http://127.0.0.1:11434"  # Ollama, which serves the model that reads screenshots
+READER_MODEL = "qwen3.5:2b"  # ollama pull qwen3.5:2b; qwen3.5:4b reads a little better and takes longer
