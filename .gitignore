@@ -219,3 +219,7 @@ __marimo__/
 
 # Wiki cache and term index (rebuilt from the wiki)
 data/
+
+# Original full-size screenshots; the 1280 px copies beside them are the test set
+tests/screenshots/originals/
+.DS_Store
