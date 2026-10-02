@@ -169,6 +169,7 @@ Before touching screenshots, we download every wiki page title plus its redirect
 | [v2](docs/v2-accuracy.md) | Accuracy | Keywords are right without manual fixes |
 | [v3](docs/v3-richer-lore.md) | Richer lore | Labeled, spoiler-safe lore maps |
 | [v4](docs/v4-polish-and-reach.md) | Polish and reach | Deployed, shareable, multi-server |
+| [v5](docs/v5-recall.md) | Recall | What changed when, searchable, replayable by chapter |
 
 ## Planned stack
 

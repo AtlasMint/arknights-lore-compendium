@@ -24,6 +24,7 @@ Take it from a personal tool to something other Arknights players can open on th
 - [ ] Pair the matching OCR language with a matching wiki (for example, PRTS for CN)
 - [ ] A separate term index per language
 - [ ] Optional: link the same character across languages
+- [ ] Story-unit tags from v3 carry over per server; a term first appears at different points on each server, so the tag is the story unit, never a release date
 
 ### Deployment
 - [ ] Frontend on GitHub Pages or Vercel
