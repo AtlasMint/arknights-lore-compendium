@@ -75,7 +75,7 @@ export default function App() {
     event.preventDefault()
     const seeds = chips.filter((c) => c.on).map((c) => c.title).join(',')
     setStatus('Building… a cold cache takes several seconds.')
-    const body = await api(`/graph?${new URLSearchParams({ seeds, depth })}`)
+    const body = await api(`/graph?${new URLSearchParams({ seeds, depth, speaker: reading?.speaker ?? '' })}`)
     if (!body) return
     setGraph(body)
     setStatus(`${body.nodes.length} nodes, ${body.links.length} links`)

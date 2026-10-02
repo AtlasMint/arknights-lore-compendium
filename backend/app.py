@@ -27,7 +27,10 @@ def image_type(data):
 
 @app.get("/graph")
 def graph():
-    """GET /graph?seeds=Amiya,Reunion&depth=2 -> {"nodes": [...], "links": [...]}"""
+    """GET /graph?seeds=Amiya,Reunion&depth=1&speaker=Amiya -> {"nodes": [...], "links": [...]}
+
+    `speaker` is optional: if it resolves to one of the seeds, that seed weighs more in the ranking.
+    """
     terms = [t.strip() for t in request.args.get("seeds", "").split(",") if t.strip()]
     depth = request.args.get("depth", config.DEPTH, type=int)
     if not 1 <= len(terms) <= 10 or any(len(t) > 100 for t in terms) or not 1 <= depth <= 3:
@@ -35,7 +38,8 @@ def graph():
     seeds = [lookup(t) for t in terms]
     if None in seeds:
         return {"error": "Not on the wiki: " + ", ".join(t for t, s in zip(terms, seeds) if s is None)}, 400
-    return build_graph(seeds, depth)
+    speaker = lookup(request.args.get("speaker", "")[:100])
+    return build_graph(seeds, depth, speaker=speaker if speaker in seeds else None)
 
 
 @app.post("/analyze")
