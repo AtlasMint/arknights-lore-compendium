@@ -5,8 +5,8 @@
 from flask import Flask, request
 
 from backend import config, stories
-from backend.graph import lore
-from backend.graph.builder import build_graph
+from backend.graph import labels, lore
+from backend.graph.builder import build_graph, resolve
 from backend.index import matcher
 from backend.index.build_index import lookup, suggest
 from backend.scraper import cache
@@ -14,6 +14,7 @@ from backend.vision import reader
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = config.MAX_UPLOAD_MB * 1024 * 1024  # bigger uploads get too_large's 413
+MAX_PAIRS = 20  # links one /labels call may name: about 40 seconds of the label model's time when none is cached
 
 
 def image_type(data):
@@ -86,3 +87,17 @@ def icon(code):
     except OSError as e:
         return {"error": f"Couldn't fetch the icon: {e}"}, 502
     return data, {"Content-Type": "image/png", "Cache-Control": "max-age=604800"}
+
+
+@app.post("/labels")
+def relationships():
+    """POST /labels {"pairs": [["Talulah", "Ch'en"], ...]} -> {"labels": [{"from", "relation", "to"}, ...]}, in order."""
+    pairs = (request.get_json(silent=True) or {}).get("pairs")
+    if (not isinstance(pairs, list) or not 1 <= len(pairs) <= MAX_PAIRS
+            or not all(isinstance(p, list) and len(p) == 2 and all(isinstance(t, str) and resolve(t[:100]) == t for t in p)
+                       for p in pairs)):
+        return {"error": f"Give 1 to {MAX_PAIRS} pairs of lore page titles."}, 400
+    try:
+        return {"labels": [labels.label(a, b) for a, b in pairs]}
+    except (OSError, RuntimeError) as e:
+        return {"error": f"Couldn't label the links: {e}"}, 502

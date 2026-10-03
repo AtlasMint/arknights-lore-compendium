@@ -21,4 +21,7 @@ GLOBAL_LAUNCH = "2020-01-16" # Global's first day, from the wiki's Arknights pag
 
 READER_URL = "http://127.0.0.1:11434"  # Ollama, which serves the model that reads screenshots
 READER_MODEL = "qwen3.5:2b"  # ollama pull qwen3.5:2b; qwen3.5:4b reads a little better and takes longer
+# ollama pull qwen3.5:4b. On 38 links of the Amiya + Reunion graph it was right or said "is related to" on 30, the 2B on
+# 14; 1.9 s a link against 0.8, and each pair is labelled once.
+LABEL_MODEL = "qwen3.5:4b"
 MAX_UPLOAD_MB = 10           # largest screenshot /analyze takes

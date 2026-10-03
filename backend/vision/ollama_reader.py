@@ -1,4 +1,5 @@
-"""Read a dialog screenshot with an open vision model served by Ollama on this machine.
+"""Read a dialog screenshot with an open vision model served by Ollama on this machine. chat() also puts the
+graph's relationship labels into words (backend/graph/labels.py).
 
 Needs Ollama running at config.READER_URL with config.READER_MODEL pulled.
 """
@@ -38,10 +39,12 @@ def read(image):
     return parse(chat(PROMPT, SCHEMA, [base64.b64encode(image).decode()]))
 
 
-def chat(prompt, schema, images=()):
-    """The model's reply to one prompt, held to a JSON schema. Raises RuntimeError as read() does."""
+def chat(prompt, schema, images=(), model=None):
+    """The model's reply to one prompt, held to a JSON schema; the reader's model unless another is named. Raises
+    RuntimeError as read() does."""
+    model = model or config.READER_MODEL
     body = {
-        "model": config.READER_MODEL,
+        "model": model,
         "messages": [{"role": "user", "content": prompt, "images": list(images)}],
         "format": schema,
         "stream": False,
@@ -55,7 +58,7 @@ def chat(prompt, schema, images=()):
             data = json.load(response)
     except urllib.error.HTTPError as e:
         if e.code == 404:
-            raise RuntimeError(f"Model not pulled: ollama pull {config.READER_MODEL}") from e
+            raise RuntimeError(f"Model not pulled: ollama pull {model}") from e
         raise RuntimeError(f"Ollama error {e.code}: {e.read().decode(errors='replace')}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"Ollama isn't running at {config.READER_URL}. Start it: brew services start ollama (macOS) or ollama serve.") from e
