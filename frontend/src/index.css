@@ -1,12 +1,27 @@
 :root {
   color-scheme: light dark;
   font-family: system-ui, sans-serif;
-  --node: #4c78a8;
   --seed: #e4572e;
+  /* Faction colours: the first three categorical slots, the most that stay apart when any two nodes can touch. */
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --node: #898781; /* other faction, or none */
+  --muted: #898781;
+  --line: #8884;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+  }
 }
 
 body {
   margin: 0;
+  background: Canvas;
 }
 
 #root {
@@ -19,7 +34,7 @@ header {
   display: grid;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #8884;
+  border-bottom: 1px solid var(--line);
 }
 
 header > * {
@@ -81,26 +96,59 @@ header > * {
   border-style: dotted; /* inferred from a misread name, a demonym or a first name alone; the tooltip shows the word as read */
 }
 
-svg {
-  display: block;
+/* The lore map */
+
+.map {
+  position: relative;
   flex: 1;
-  width: 100%;
   min-height: 0;
 }
 
-.links line {
-  stroke: #8888;
+.map > svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
-.node circle {
+.links line {
+  stroke: var(--line);
+}
+
+.links line.lit {
+  stroke: CanvasText;
+}
+
+.node {
+  cursor: pointer;
+}
+
+.node path {
   fill: var(--node);
   stroke: Canvas;
+  stroke-width: 2px;
 }
 
-.node.seed circle {
-  fill: var(--seed);
+.node.seed path {
   stroke: CanvasText;
-  stroke-width: 2px;
+  stroke-width: 2.5px;
+}
+
+.node.selected path {
+  stroke: CanvasText;
+  stroke-width: 3px;
+}
+
+.node:focus {
+  outline: none;
+}
+
+.node:focus-visible path {
+  stroke: CanvasText;
+  stroke-width: 3px;
+}
+
+.node.dim {
+  opacity: 0.25;
 }
 
 .node text {
@@ -115,4 +163,109 @@ svg {
 .node.seed text {
   font-size: 13px;
   font-weight: 600;
+}
+
+.legend,
+.detail {
+  position: absolute;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: Canvas;
+  font-size: 0.85rem;
+}
+
+.legend {
+  bottom: 0.75rem;
+  left: 0.75rem;
+  max-height: calc(100% - 1.5rem);
+  overflow: auto;
+}
+
+.legend fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  max-width: 20rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.legend label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.legend svg path {
+  fill: var(--node);
+}
+
+.legend ul {
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.legend p {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+}
+
+.swatch {
+  display: inline-block;
+  width: 0.75rem;
+  height: 0.75rem;
+  margin-right: 0.35rem;
+  border-radius: 2px;
+  vertical-align: -0.1rem;
+}
+
+.detail {
+  top: 0.75rem;
+  right: 0.75rem;
+  width: 22rem;
+  max-width: calc(100% - 2.5rem);
+  max-height: calc(100% - 1.5rem);
+  overflow: auto;
+}
+
+.detail h2 {
+  margin: 0 1.5rem 0.25rem 0;
+  font-size: 1.1rem;
+}
+
+.detail h3 {
+  margin: 0.75rem 0 0.25rem;
+  font-size: 0.95rem;
+}
+
+.detail ul {
+  padding-left: 1.1rem;
+}
+
+.meta {
+  color: var(--muted);
+}
+
+.close {
+  position: absolute;
+  top: 0.25rem;
+  right: 0.5rem;
+  border: 0;
+  background: none;
+  color: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+
+button.link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: LinkText;
+  font: inherit;
+  text-decoration: underline;
+  cursor: pointer;
 }

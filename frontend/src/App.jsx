@@ -1,5 +1,22 @@
 import * as d3 from 'd3'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+
+const WIKI = 'https://arknights.wiki.gg/wiki/'
+// Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
+const TYPES = [
+  ['Operator', d3.symbolCircle],
+  ['Character', d3.symbolDiamond],
+  ['Faction', d3.symbolSquare],
+  ['Location', d3.symbolTriangle],
+  ['Event', d3.symbolStar],
+  ['Other', d3.symbolCross],
+]
+const SHAPES = Object.fromEntries(TYPES)
+// Only three hues stay apart when any two nodes can sit side by side, so the three largest factions get one each and
+// the rest share the neutral. The node labels and the detail panel name every faction.
+const FACTION_COLORS = 3
+
+const wikiUrl = (title) => WIKI + encodeURIComponent(title.replaceAll(' ', '_'))
 
 export default function App() {
   // Keywords to seed the graph with. Only chips that are on are sent; `shot` is the screenshot that introduced one.
@@ -13,6 +30,8 @@ export default function App() {
   const [depth, setDepth] = useState(1)
   const [graph, setGraph] = useState(null)
   const [status, setStatus] = useState('')
+  const [types, setTypes] = useState(new Set(TYPES.map(([type]) => type)))
+  const [selected, setSelected] = useState(null)
 
   // JSON from the backend, or null after putting the reason in the status line.
   async function api(url, options) {
@@ -22,6 +41,19 @@ export default function App() {
     setStatus(body?.error ?? `Backend unreachable or failed (${response?.status ?? 'no response'}).`)
     return null
   }
+
+  // The graph as shown: a type left out of the legend goes, with its links.
+  const visible = useMemo(() => {
+    if (!graph) return null
+    const kept = new Set(graph.nodes.filter((n) => types.has(n.type)).map((n) => n.id))
+    return { nodes: graph.nodes.filter((n) => kept.has(n.id)), links: graph.links.filter((l) => kept.has(l.source) && kept.has(l.target)) }
+  }, [graph, types])
+  // Faction colours follow the faction, ranked once per graph, so filtering a type never repaints the survivors.
+  const factionColors = useMemo(() => {
+    const score = d3.rollup(graph?.nodes.filter((n) => n.faction) ?? [], (ns) => d3.sum(ns, (n) => n.score), (n) => n.faction)
+    const top = [...score].sort((a, b) => b[1] - a[1]).slice(0, FACTION_COLORS)
+    return new Map(top.map(([faction], i) => [faction, `var(--series-${i + 1})`]))
+  }, [graph])
 
   // The reader's time grows with pixels: a 2340×1080 phone screenshot took 19 s, at 1280 px wide 6 s,
   // and the dialog text is still legible. Anything that isn't an image is sent as is, for the server's 415.
@@ -70,6 +102,7 @@ export default function App() {
     setShots([])
     setChips([])
     setGraph(null)
+    setSelected(null)
     setStatus('New session: drop a screenshot or add keywords.')
   }
 
@@ -95,8 +128,12 @@ export default function App() {
     const body = await api(`/graph?${new URLSearchParams({ seeds, depth, speaker })}`)
     if (!body) return
     setGraph(body)
+    setSelected(null)
     setStatus(`${body.nodes.length} nodes, ${body.links.length} links`)
   }
+
+  const shotOf = (title) => chips.find((c) => c.title === title)?.shot
+  const node = visible?.nodes.find((n) => n.id === selected)
 
   return (
     <>
@@ -169,23 +206,104 @@ export default function App() {
           <output>{status}</output>
         </form>
       </header>
-      {graph && <Graph data={graph} />}
+      {visible && (
+        <main className="map">
+          <Graph data={visible} colors={factionColors} selected={selected} onSelect={setSelected} />
+          <aside className="legend" aria-label="Legend">
+            <fieldset>
+              <legend>Show</legend>
+              {TYPES.map(([type, shape]) => (
+                <label key={type}>
+                  <input
+                    type="checkbox"
+                    checked={types.has(type)}
+                    onChange={() => setTypes(new Set(types.has(type) ? [...types].filter((t) => t !== type) : [...types, type]))}
+                  />
+                  <svg width="14" height="14" viewBox="-7 -7 14 14" aria-hidden="true">
+                    <path d={d3.symbol(shape, 60)()} />
+                  </svg>
+                  {type}
+                </label>
+              ))}
+            </fieldset>
+            <ul>
+              {[...factionColors].filter(([faction]) => visible.nodes.some((n) => n.faction === faction)).map(([faction, color]) => (
+                <li key={faction}>
+                  <span className="swatch" style={{ background: color }} />
+                  {faction}
+                </li>
+              ))}
+              <li>
+                <span className="swatch" style={{ background: 'var(--node)' }} />
+                Other faction, or none
+              </li>
+            </ul>
+          </aside>
+          {node && (
+            <Detail
+              node={node}
+              links={visible.links.filter((l) => l.source === node.id || l.target === node.id)}
+              shot={shotOf(node.id)}
+              onSelect={setSelected}
+            />
+          )}
+        </main>
+      )}
     </>
   )
 }
 
-function Graph({ data }) {
+// One node: what it is, its summary, a link to its wiki page, and its connections.
+function Detail({ node, links, shot, onSelect }) {
+  return (
+    <aside className="detail" aria-label={`About ${node.id}`}>
+      <button type="button" className="close" aria-label="Close" onClick={() => onSelect(null)}>
+        ×
+      </button>
+      <h2>
+        <a href={wikiUrl(node.id)} target="_blank" rel="noreferrer">
+          {node.id}
+        </a>
+      </h2>
+      <p className="meta">
+        {[node.type, node.faction !== node.id && node.faction, node.seed && (shot ? `from screenshot ${shot}` : 'your keyword')]
+          .filter(Boolean)
+          .join(' · ')}
+      </p>
+      <p>{node.summary.map((s) => s.text).join(' ')}</p>
+      <h3>Connections</h3>
+      <ul>
+        {[...links]
+          .sort((a, b) => b.weight - a.weight)
+          .map((l) => {
+            const other = l.source === node.id ? l.target : l.source
+            return (
+              <li key={other}>
+                <button type="button" className="link" onClick={() => onSelect(other)}>
+                  {other}
+                </button>
+              </li>
+            )
+          })}
+      </ul>
+    </aside>
+  )
+}
+
+function Graph({ data, colors, selected, onSelect }) {
   const svgRef = useRef(null)
+  const positions = useRef(new Map()) // where each node was, so filtering a type doesn't scatter the map
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     const { width, height } = svgRef.current.getBoundingClientRect()
-    const nodes = data.nodes.map((d) => ({ ...d })) // the simulation mutates these
+    const nodes = data.nodes.map((d) => ({ ...d, ...positions.current.get(d.id) })) // the simulation mutates these
     const links = data.links.map((d) => ({ ...d }))
     const radius = d3.scaleSqrt().domain(d3.extent(nodes, (d) => d.score)).range([4, 18])
 
     const root = svg.append('g')
     svg.call(d3.zoom().scaleExtent([0.2, 8]).on('zoom', (event) => root.attr('transform', event.transform)))
+    svg.on('click', (event) => event.target === svgRef.current && onSelect(null))
 
     const link = root
       .append('g')
@@ -200,13 +318,20 @@ function Graph({ data }) {
       .data(nodes)
       .join('g')
       .attr('class', (d) => (d.seed ? 'node seed' : 'node'))
-    node.append('circle').attr('r', (d) => radius(d.score))
+      .attr('tabindex', 0)
+      .attr('role', 'button')
+      .attr('aria-label', (d) => `${d.id}, ${d.type}${d.faction && d.faction !== d.id ? ` of ${d.faction}` : ''}`)
+      .on('click', (event, d) => onSelect(d.id))
+      .on('keydown', (event, d) => (event.key === 'Enter' || event.key === ' ') && onSelect(d.id))
+    node
+      .append('path')
+      .attr('d', (d) => d3.symbol(SHAPES[d.type] ?? d3.symbolCross, Math.PI * radius(d.score) ** 2)())
+      .style('fill', (d) => colors.get(d.faction) ?? null)
     node
       .append('text')
       .text((d) => d.id)
       .attr('x', (d) => radius(d.score) + 3)
       .attr('dy', '0.35em')
-    node.append('title').text((d) => [d.id, ...d.categories].join('\n'))
     node.filter((d) => d.seed).raise()
 
     const simulation = d3
@@ -222,7 +347,9 @@ function Graph({ data }) {
           .attr('x2', (d) => d.target.x)
           .attr('y2', (d) => d.target.y)
         node.attr('transform', (d) => `translate(${d.x},${d.y})`)
+        nodes.forEach((d) => positions.current.set(d.id, { x: d.x, y: d.y }))
       })
+    if (nodes.every((d) => d.x !== undefined)) simulation.alpha(0.1) // nodes were only taken away: settle, don't re-shuffle
 
     node.call(
       d3
@@ -245,10 +372,21 @@ function Graph({ data }) {
 
     return () => {
       simulation.stop()
-      svg.on('.zoom', null)
+      svg.on('.zoom', null).on('click', null)
       root.remove()
     }
-  }, [data])
+  }, [data, colors, onSelect])
 
-  return <svg ref={svgRef} role="img" aria-label={`Lore graph of ${data.nodes.length} wiki pages`} />
+  // Selecting a node lights it and its neighbours and dims the rest, without restarting the layout.
+  useEffect(() => {
+    const svg = d3.select(svgRef.current)
+    const near = new Set(
+      selected ? [selected, ...data.links.flatMap((l) => (l.source === selected ? [l.target] : l.target === selected ? [l.source] : []))] : [],
+    )
+    const touches = (d) => !!selected && (d.source.id === selected || d.target.id === selected)
+    svg.selectAll('.node').classed('selected', (d) => d.id === selected).classed('dim', (d) => !!selected && !near.has(d.id))
+    svg.selectAll('.links line').classed('lit', touches)
+  }, [data, selected])
+
+  return <svg ref={svgRef} role="group" aria-label={`Lore graph of ${data.nodes.length} wiki pages`} />
 }
