@@ -13,9 +13,9 @@ _lock = threading.Lock()
 _last = 0.0
 
 
-def _get(params):
+def _fetch(url):
+    """Bytes at a wiki URL, within the request budget, retrying throttling, server and network errors."""
     global _last
-    url = config.WIKI_API + "?" + urllib.parse.urlencode({**params, "format": "json", "formatversion": 2})
     request = urllib.request.Request(url, headers={"User-Agent": config.USER_AGENT})
     for attempt in range(4):
         with _lock:  # ponytail: one process-wide lock, so every thread shares the same 1 req/s budget
@@ -23,14 +23,17 @@ def _get(params):
             _last = time.monotonic()
         try:
             with urllib.request.urlopen(request, timeout=60) as response:
-                data = json.load(response)
-            break
-        except OSError as e:  # URLError, HTTPError, timeouts: retry throttling, server and network errors
+                return response.read()
+        except OSError as e:  # URLError, HTTPError, timeouts
             code = getattr(e, "code", None)
             if attempt == 3 or (code is not None and code != 429 and code < 500):
                 raise
             retry_after = e.headers.get("Retry-After", "") if code else ""
             time.sleep(int(retry_after) if retry_after.isdigit() else 5 * (attempt + 1))
+
+
+def _get(params):
+    data = json.loads(_fetch(config.WIKI_API + "?" + urllib.parse.urlencode({**params, "format": "json", "formatversion": 2})))
     if "error" in data:
         raise RuntimeError(f"wiki API error {data['error']['code']}: {data['error']['info']}")
     return data
