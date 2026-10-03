@@ -47,12 +47,12 @@ export default function App() {
     if (!body) return
     setReading(body)
     setChips([
-      ...body.keywords.map((title) => ({ title, on: true })),
+      ...body.keywords.map((title) => ({ title, on: true, guess: body.guesses[title] })),
       ...body.needs_context.map((title) => ({ title, on: false })),
     ])
     setStatus(
       body.keywords.length || body.needs_context.length
-        ? 'Click a keyword to include or leave it out (dashed ones are left out), then build the graph.'
+        ? 'Click a keyword to include or leave it out (dashed ones are left out; dotted ones are inferred, hover to see the word), then build the graph.'
         : 'No wiki terms found. Add keywords by hand.',
     )
   }
@@ -108,7 +108,8 @@ export default function App() {
             <button
               key={chip.title}
               type="button"
-              className="chip"
+              className={chip.guess ? 'chip guess' : 'chip'}
+              title={chip.guess && `Read as “${chip.guess}”`}
               aria-pressed={chip.on}
               onClick={() => setChips(chips.map((c, j) => (i === j ? { ...c, on: !c.on } : c)))}
             >

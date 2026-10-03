@@ -61,6 +61,10 @@ header > * {
   background: color-mix(in srgb, var(--seed) 25%, Canvas);
 }
 
+.chip.guess {
+  border-style: dotted; /* inferred from a misread name, a demonym or a first name alone; the tooltip shows the word as read */
+}
+
 svg {
   display: block;
   flex: 1;
