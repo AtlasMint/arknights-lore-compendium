@@ -3,7 +3,7 @@ Gets the Arknights wiki and builds a network graph of characters, factions, and 
 
 ## Features
 
-- Upload a story dialog screenshot: an open vision model running on your machine reads the speaker and text, the term index picks out the wiki pages they name, and you review those keywords as chips before building the graph.
+- Upload a story screenshot (dialog, story log, a choice, or a chapter menu): an open vision model running on your machine reads the speaker and the text on screen, the term index picks out the wiki pages they name, and you review those keywords as chips before building the graph.
 - Or type seed terms (e.g. `Amiya, Reunion`) and get the lore pages around them: links followed 1 hop out by default (up to 3), weighted, and pruned to the 150 most relevant with PageRank that restarts at the seeds.
 - A term index of every wiki page title and redirect, so any name or alternate name resolves to its page (`Reunion Movement` → `Reunion`).
 - Operator pages are gameplay stats, so their lore comes from the `/Story` and `/File` subpages. Stages, mechanics, items, staff and media pages are filtered out by wiki category.
@@ -88,23 +88,23 @@ Platform notes:
 
 ## API endpoints
 
-`GET /graph?seeds=Amiya,Reunion&depth=1` returns:
+`GET /graph?seeds=Amiya,Reunion&depth=1&speaker=Amiya` returns:
 
 ```json
 {"nodes": [{"id": "Amiya", "seed": true, "score": 0.144, "categories": ["5-star", "Amiya", "Caster", "Core Caster", "Rhodes Island"]}, ...],
  "links": [{"source": "Kal'tsit", "target": "Amiya", "weight": 59}, ...]}
 ```
 
-It takes 1–10 comma-separated seeds and a depth from 1 to 3 (default 1). Seeds that aren't wiki pages or redirects get a 400 with `{"error": "Not on the wiki: ..."}`.
+It takes 1–10 comma-separated seeds and a depth from 1 to 3 (default 1). `speaker` is optional: when it is one of the seeds, that seed gets three times the others' share of the PageRank restart, so the map leans toward whoever was talking. Seeds that aren't wiki pages or redirects get a 400 with `{"error": "Not on the wiki: ..."}`.
 
 `POST /analyze` takes a multipart form with one `image` field (PNG, JPEG or WebP, up to 10 MB). The frontend scales screenshots to 1280 px on the long side before uploading, since the reader's time grows with pixels: a phone screenshot went from 19 s to 5 s with the text still legible. It returns:
 
 ```json
 {"speaker": "Amiya", "text": "Doctor, the Reunion Movement has taken Chernobog.",
- "keywords": ["Amiya", "Reunion", "Chernobog"], "needs_context": ["Doctor"]}
+ "keywords": ["Amiya", "Reunion", "Chernobog"], "needs_context": ["Doctor"], "guesses": {"Chernobog": "Chernobug"}}
 ```
 
-`keywords` are wiki pages named by the speaker or written capitalized in the dialog. `needs_context` holds matches written in lower case (`the silence here`) and `Doctor`, which could be ordinary words; the UI shows them unselected. The file type is checked from its bytes, not its name. A wrong type gets a 415, an oversized file a 413, and a failed read (Ollama not running, model not pulled) a 502, each with an `error` message.
+The reader is asked for all the story text on screen, so the lines of a story log, the options of a choice and the cards of a chapter menu count too. `keywords` are wiki pages named by the speaker or written capitalized in the text. `needs_context` holds matches written in lower case (`the silence here`) and `Doctor`, which could be ordinary words; the UI shows them unselected. Capitalized words that matched nothing get a second look. A word that is a gameplay title (a class, a term, a disambiguation) offers the lore pages that qualify it: a disambiguation's targets as keywords (`Nightzmora` → Nightzmora (country) and Nightzmora (race)), a class's namesake under `needs_context` (`Guard` → Guard (NPC), since Guard is usually the class). Any other word of five or more letters is tried as a demonym or plural (`Tarans` → Tara), then as a misreading, compared with every title using `difflib` and accepted at 0.85 similarity or better (`Dublinl` → Dublinn), then as one word of a character, place or group that only one such page starts or ends with (`Candela` → Candela Sanchez, `Hillock` → County Hillock). Ordinary words that happen to start or end such a page (County, Palace, Island) are listed in the matcher and never count. `guesses` lists the keywords found that way, with the word as read, and the UI draws those chips dotted, with the word in the tooltip. The file type is checked from its bytes, not its name. A wrong type gets a 415, an oversized file a 413, and a failed read (Ollama not running, model not pulled) a 502, each with an `error` message.
 
 `GET /terms?prefix=kal` returns up to 10 titles and redirects starting with the prefix, for autocomplete: `["Kal", "Kal'tsit", ...]`.
 
@@ -113,7 +113,7 @@ It takes 1–10 comma-separated seeds and a depth from 1 to 3 (default 1). Seeds
 ```
 backend/    engine: scraper/ (wiki API + cache), parser/, index/ (term index, keyword matcher), graph/, vision/ (screenshot reading), cli.py, app.py (Flask), config.py
 frontend/   React + Vite + D3 force graph
-tests/      offline tests, one per version
+tests/      offline tests, one per version, plus the labeled screenshot set and its scorer
 docs/       plans for versions still to build; archive/ holds the finished ones with their outcome notes
 data/       SQLite page cache, term index and screenshot readings (created on first run, not committed)
 ```
@@ -123,9 +123,16 @@ data/       SQLite page cache, term index and screenshot readings (created on fi
 ```bash
 python -m tests.test_v0
 python -m tests.test_v1
+python -m tests.test_v2
 ```
 
-Both run against a small fake wiki, and `test_v1` stubs the reader, so they need no network and no Ollama.
+All three run against a small fake wiki, and `test_v1` stubs the reader, so they need no network and no Ollama.
+
+```bash
+python -m tests.score_screenshots
+```
+
+This one needs Ollama. It runs the 28 labeled screenshots in `tests/screenshots/` through the reader and matcher and prints, per screenshot, whether the speaker was read right, how close the text came, and the chip edits a user would still have to make (keywords missed, parked under needs-context, or extra), then the totals. `labels.json` holds each screenshot's speaker, text and expected keywords. Readings go through the cache, so a rerun with nothing changed is instant. The committed images are 1280 px copies, the size the frontend uploads; full-size originals can sit in `tests/screenshots/originals/`, which git ignores.
 
 ## CI
 
@@ -157,7 +164,7 @@ Screenshot
 
 ## The key idea: a term index
 
-Before touching screenshots, we download every wiki page title plus its redirects (alternate names that point to the same page). That list is the answer key. The system never guesses whether a word "sounds important"; it only asks whether the word is a real wiki page. This filters out OCR mistakes and made-up terms, and redirects cover nicknames and alternate spellings.
+Before touching screenshots, we download every wiki page title plus its redirects (alternate names that point to the same page). That list is the answer key. The system never guesses whether a word "sounds important"; it only asks whether the word is a real wiki page. This filters out OCR mistakes and made-up terms, and redirects cover nicknames and alternate spellings. Gameplay pages (stages, mechanics, items, furniture, base skills, music) are filtered out by category, so the index holds about 1,400 lore pages: characters, places, factions, races and stories.
 
 ## Versions
 
@@ -166,7 +173,7 @@ Before touching screenshots, we download every wiki page title plus its redirect
 | [v0](docs/archive/v0-foundation.md) | Foundation | Type keywords, get a graph |
 | [v1](docs/archive/v1-screenshot-mvp.md) | Screenshot MVP | Upload a screenshot, get a graph |
 | [v1.1](docs/archive/v1.1-local-reader.md) | Local reader | Screenshots read by an open model on your machine, no API key |
-| [v2](docs/v2-accuracy.md) | Accuracy | Keywords are right without manual fixes |
+| [v2](docs/archive/v2-accuracy.md) | Accuracy | 26 of 28 real screenshots need no chip edits, from 12 |
 | [v3](docs/v3-richer-lore.md) | Richer lore | Labeled, spoiler-safe lore maps |
 | [v4](docs/v4-polish-and-reach.md) | Polish and reach | Deployed, shareable, multi-server |
 | [v5](docs/v5-recall.md) | Recall | What changed when, searchable, replayable by chapter |
@@ -177,8 +184,8 @@ Before touching screenshots, we download every wiki page title plus its redirect
 |---|---|
 | Data source | MediaWiki API ([Arknights Terra Wiki](https://arknights.wiki.gg) on wiki.gg, chosen in v0) |
 | Wikitext parsing | `mwparserfromhell` |
-| Text from images | Qwen3.5-2B through Ollama (v1.1), PaddleOCR as an alternative (v2) |
-| Term matching | Exact match (v1), `rapidfuzz` fuzzy match (v2) |
+| Text from images | Qwen3.5-2B through Ollama (v1.1) |
+| Term matching | Exact match (v1); demonyms, `difflib` fuzzy match and partial names (v2) |
 | Graph | NetworkX |
 | Cache / index | SQLite |
 | Backend | Flask |
