@@ -20,6 +20,14 @@ export function visibleGraph(graph, isVisible, types) {
   return { nodes: graph.nodes.filter((n) => kept.has(n.id) && (n.seed || linked.has(n.id))), links }
 }
 
+// Where a link's label was learned: the first ticked story both ends share. null hides the label. With every story
+// ticked a label always shows, naming the first shared story if there is one.
+export function learnedIn(link, ticked, everything) {
+  const story = link.stories.find((s) => ticked.has(s))
+  if (story) return { story }
+  return everything ? { story: link.stories[0] ?? null } : null
+}
+
 // Clicking an Episode ticks it and every Episode before it; clicking a ticked one unticks it and every one after.
 // Any other story ticks on its own.
 export function toggleStory(stories, ticked, id) {

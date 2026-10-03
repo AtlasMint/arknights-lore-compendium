@@ -154,6 +154,16 @@ header > * {
   stroke-width: 3px;
 }
 
+.link-labels text {
+  font-size: 10px;
+  text-anchor: middle;
+  fill: CanvasText;
+  stroke: Canvas;
+  stroke-width: 3px;
+  paint-order: stroke;
+  pointer-events: none;
+}
+
 .node.dim {
   opacity: 0.25;
 }

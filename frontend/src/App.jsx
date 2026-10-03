@@ -1,9 +1,11 @@
 import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { visibility, visibleGraph } from './lore.js'
+import { learnedIn, visibility, visibleGraph } from './lore.js'
 import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
+const LABEL_BATCH = 10 // links per /labels call; about twenty seconds of the model's time when none is cached
+const UNSURE = 'is related to' // the label when the wiki doesn't say, backend/graph/labels.py
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
 const TYPES = [
   ['Operator', d3.symbolCircle],
@@ -37,6 +39,7 @@ function useStored(key, fallback) {
   return [value, setValue]
 }
 
+const linkKey = (link) => `${link.source}\n${link.target}`
 const wikiUrl = (title) => WIKI + encodeURIComponent(title.replaceAll(' ', '_'))
 
 export default function App() {
@@ -56,6 +59,8 @@ export default function App() {
   const [tickedList, setTickedList] = useStored('ticked', [])
   const [overrides, setOverrides] = useStored('overrides', {}) // term -> "hide" | "show", correcting the tags
   const [types, setTypes] = useState(new Set(TYPES.map(([type]) => type)))
+  const [labels, setLabels] = useState({}) // "source\ntarget" -> {from, relation, to}
+  const [labelError, setLabelError] = useState('')
   const [selected, setSelected] = useState(null)
 
   // JSON from the backend, or null after putting the reason in the status line.
@@ -83,12 +88,37 @@ export default function App() {
   )
   const visible = useMemo(() => graph && visibleGraph(graph, isVisible, types), [graph, isVisible, types])
   const hidden = graph?.nodes.filter((n) => !isVisible(n.id)) ?? []
+  const storyNames = useMemo(() => Object.fromEntries((stories?.stories ?? []).map((s) => [s.id, s.name])), [stories])
   // Faction colours follow the faction, ranked once per graph, so ticking a story never repaints the survivors.
   const factionColors = useMemo(() => {
     const score = d3.rollup(graph?.nodes.filter((n) => n.faction) ?? [], (ns) => d3.sum(ns, (n) => n.score), (n) => n.faction)
     const top = [...score].sort((a, b) => b[1] - a[1]).slice(0, FACTION_COLORS)
     return new Map(top.map(([faction], i) => [faction, `var(--series-${i + 1})`]))
   }, [graph])
+
+  // Label the visible links a batch at a time. Each finished batch starts the next, which puts the links of whatever is
+  // selected then first. Selecting doesn't restart the batch in flight: the model would label the same pairs twice.
+  useEffect(() => {
+    if (!visible || labelError) return
+    const touches = (l) => l.source === selected || l.target === selected
+    const pending = visible.links.filter((l) => !(linkKey(l) in labels)).sort((a, b) => touches(b) - touches(a))
+    if (!pending.length) return
+    let cancelled = false
+    const batch = pending.slice(0, LABEL_BATCH)
+    fetch('/labels', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pairs: batch.map((l) => [l.source, l.target]) }),
+    })
+      .then((response) => response.json().then((body) => (response.ok ? body : Promise.reject(new Error(body.error)))))
+      .then((body) => {
+        if (!cancelled) setLabels((old) => ({ ...old, ...Object.fromEntries(batch.map((l, i) => [linkKey(l), body.labels[i]])) }))
+      })
+      .catch((error) => !cancelled && setLabelError(error.message || 'Labels unavailable.'))
+    return () => {
+      cancelled = true
+    }
+  }, [visible, labels, labelError]) // eslint-disable-line react-hooks/exhaustive-deps -- selected: see above
 
   // The reader's time grows with pixels: a 2340×1080 phone screenshot took 19 s, at 1280 px wide 6 s,
   // and the dialog text is still legible. Anything that isn't an image is sent as is, for the server's 415.
@@ -164,6 +194,7 @@ export default function App() {
     if (!body) return
     setGraph(body)
     setSelected(null)
+    setLabelError('')
     setView('map')
     setStatus(`${body.nodes.length} nodes, ${body.links.length} links`)
   }
@@ -255,7 +286,18 @@ export default function App() {
       )}
       {view === 'map' && visible && (
         <main className="map">
-          <Graph data={visible} colors={factionColors} selected={selected} onSelect={setSelected} />
+          <Graph
+            data={visible}
+            colors={factionColors}
+            selected={selected}
+            onSelect={setSelected}
+            label={(link) => {
+              // On the map a label goes on the selected node's links, read from whichever end the wiki speaks of.
+              const known = learnedIn(link, ticked, everything) && labels[linkKey(link)]
+              if (!known || known.relation === UNSURE) return null
+              return known.from === selected ? known.relation : `${known.from} ${known.relation}`
+            }}
+          />
           <aside className="legend" aria-label="Legend">
             <fieldset>
               <legend>Show</legend>
@@ -285,6 +327,9 @@ export default function App() {
                 Other faction, or none
               </li>
             </ul>
+            <p>
+              {visible.links.filter((l) => linkKey(l) in labels).length} of {visible.links.length} links labelled
+            </p>
             {!!hidden.length && (
               <details>
                 <summary>{hidden.length} hidden: show names (spoilers)</summary>
@@ -300,12 +345,13 @@ export default function App() {
                 </ul>
               </details>
             )}
+            {labelError && <p>Labels: {labelError}</p>}
           </aside>
           {node && (
             <Detail
               node={node}
               links={visible.links.filter((l) => l.source === node.id || l.target === node.id)}
-              {...{ isVisible, overrides, setOverrides }}
+              {...{ labels, ticked, everything, isVisible, storyNames, overrides, setOverrides }}
               shot={shotOf(node.id)}
               onSelect={setSelected}
             />
@@ -316,8 +362,9 @@ export default function App() {
   )
 }
 
-// What the player may know about one node: its summary without sentences that name a hidden term, and its links.
-function Detail({ node, links, isVisible, overrides, setOverrides, shot, onSelect }) {
+// What the player may know about one node: its summary without sentences that name a hidden term, and its links with
+// the labels learned in a ticked story.
+function Detail({ node, links, labels, ticked, everything, isVisible, storyNames, overrides, setOverrides, shot, onSelect }) {
   const sentences = node.summary.filter((s) => s.terms.every(isVisible))
   const withheld = node.summary.length - sentences.length
   return (
@@ -338,16 +385,42 @@ function Detail({ node, links, isVisible, overrides, setOverrides, shot, onSelec
       <p>{sentences.map((s) => s.text).join(' ') || 'Nothing you have read yet.'}</p>
       {withheld > 0 && <p className="meta">{withheld} more sentence{withheld > 1 ? 's' : ''} once you read further.</p>}
       <h3>Connections</h3>
+      {links.some((l) => !learnedIn(l, ticked, everything)) && (
+        <p className="meta">A connection is labelled once you have read a story both ends appear in.</p>
+      )}
       <ul>
         {[...links]
           .sort((a, b) => b.weight - a.weight)
           .map((l) => {
             const other = l.source === node.id ? l.target : l.source
+            const learned = learnedIn(l, ticked, everything)
+            const known = labels[linkKey(l)]
+            const name = (title) =>
+              title === node.id ? (
+                title
+              ) : (
+                <button type="button" className="link" onClick={() => onSelect(title)}>
+                  {title}
+                </button>
+              )
             return (
               <li key={other}>
-                <button type="button" className="link" onClick={() => onSelect(other)}>
-                  {other}
-                </button>
+                {learned ? (
+                  <>
+                    {known ? (
+                      <>
+                        {name(known.from)} {known.relation} {name(known.to)}
+                      </>
+                    ) : (
+                      <>
+                        {name(l.source)} … {name(l.target)}
+                      </>
+                    )}
+                    {learned.story && <span className="meta"> · learned in {storyNames[learned.story] ?? learned.story}</span>}
+                  </>
+                ) : (
+                  name(other)
+                )}
               </li>
             )
           })}
@@ -369,9 +442,10 @@ function Detail({ node, links, isVisible, overrides, setOverrides, shot, onSelec
   )
 }
 
-function Graph({ data, colors, selected, onSelect }) {
+function Graph({ data, colors, selected, onSelect, label }) {
   const svgRef = useRef(null)
   const positions = useRef(new Map()) // where each node was, so ticking a story doesn't scatter the map
+  const placed = useRef([]) // the simulation's links, which carry their ends' positions
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
@@ -412,6 +486,8 @@ function Graph({ data, colors, selected, onSelect }) {
       .attr('x', (d) => radius(d.score) + 3)
       .attr('dy', '0.35em')
     node.filter((d) => d.seed).raise()
+    const labelGroup = root.append('g').attr('class', 'link-labels') // over the nodes, so a label stays readable
+    placed.current = links
 
     const simulation = d3
       .forceSimulation(nodes)
@@ -426,6 +502,10 @@ function Graph({ data, colors, selected, onSelect }) {
           .attr('x2', (d) => d.target.x)
           .attr('y2', (d) => d.target.y)
         node.attr('transform', (d) => `translate(${d.x},${d.y})`)
+        labelGroup
+          .selectAll('text')
+          .attr('x', (d) => (d.source.x + d.target.x) / 2)
+          .attr('y', (d) => (d.source.y + d.target.y) / 2)
         nodes.forEach((d) => positions.current.set(d.id, { x: d.x, y: d.y }))
       })
     if (nodes.every((d) => d.x !== undefined)) simulation.alpha(0.1) // only hidden nodes left: settle, don't re-shuffle
@@ -456,7 +536,8 @@ function Graph({ data, colors, selected, onSelect }) {
     }
   }, [data, colors, onSelect])
 
-  // Selecting a node lights it and its neighbours and dims the rest, without restarting the layout.
+  // Selecting a node lights it and its neighbours, dims the rest and writes the labels on its links, without
+  // restarting the layout.
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     const near = new Set(
@@ -465,7 +546,18 @@ function Graph({ data, colors, selected, onSelect }) {
     const touches = (d) => !!selected && (d.source.id === selected || d.target.id === selected)
     svg.selectAll('.node').classed('selected', (d) => d.id === selected).classed('dim', (d) => !!selected && !near.has(d.id))
     svg.selectAll('.links line').classed('lit', touches)
-  }, [data, selected])
+    svg
+      .select('.link-labels')
+      .selectAll('text')
+      .data(
+        placed.current.filter((d) => touches(d) && label({ ...d, source: d.source.id, target: d.target.id })),
+        (d) => `${d.source.id}\n${d.target.id}`,
+      )
+      .join('text')
+      .text((d) => label({ ...d, source: d.source.id, target: d.target.id }))
+      .attr('x', (d) => (d.source.x + d.target.x) / 2)
+      .attr('y', (d) => (d.source.y + d.target.y) / 2)
+  }, [data, selected, label])
 
   return <svg ref={svgRef} role="group" aria-label={`Lore graph of ${data.nodes.length} wiki pages`} />
 }
