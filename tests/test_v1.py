@@ -43,6 +43,7 @@ def test_find():
 def test_parse():
     assert ollama_reader.parse('```json\n{"speaker": "Amiya", "text": "Doctor?"}\n```') == {"speaker": "Amiya", "text": "Doctor?"}
     assert ollama_reader.parse('{"speaker": null, "text": "Hi"}') == {"speaker": "", "text": "Hi"}
+    assert ollama_reader.parse('{"speaker": "", "text": "Safe?\\\\nBlaze"}') == {"speaker": "", "text": "Safe?\nBlaze"}  # escaped twice
     assert ollama_reader.parse("Amiya: Doctor?") == {"speaker": "", "text": "Amiya: Doctor?"}  # not JSON: kept as text
     assert ollama_reader.parse('["Amiya"]') == {"speaker": "", "text": '["Amiya"]'}
 

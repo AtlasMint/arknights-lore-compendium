@@ -21,15 +21,16 @@ SCHEMA = {"type": "object", "properties": {"speaker": {"type": "string"}, "text"
 
 
 def parse(reply):
-    """Model reply -> {"speaker", "text"}. Code fences are stripped. A reply that isn't the JSON object
-    asked for is kept whole as the text, so the names in it can still be matched."""
+    """Model reply -> {"speaker", "text"}. Code fences are stripped, and a literal backslash-n in the text (the model
+    sometimes escapes line breaks twice on log views) becomes a line break, so names after it still match. A reply
+    that isn't the JSON object asked for is kept whole as the text, so the names in it can still be matched."""
     try:
         data = json.loads(re.sub(r"^```\w*|```$", "", reply.strip()))
     except ValueError:
         data = None
     if not isinstance(data, dict):
         return {"speaker": "", "text": reply}
-    return {"speaker": str(data.get("speaker") or ""), "text": str(data.get("text") or "")}
+    return {"speaker": str(data.get("speaker") or ""), "text": str(data.get("text") or "").replace("\\n", "\n")}
 
 
 def read(image):
