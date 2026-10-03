@@ -58,6 +58,11 @@ def lookup(term):
     return exact.get(title) or folded.get(title.casefold())
 
 
+def titles():
+    """Every title and redirect, for fuzzy matching."""
+    return _load()[0].keys()
+
+
 def categories(title):
     """Visible wiki categories of a canonical page title."""
     return _load()[2].get(title, [])

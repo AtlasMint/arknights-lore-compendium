@@ -35,9 +35,13 @@ def test_find():
     # Speaker first. "silence" is lower case but the speaker already made it a keyword; "island" and Doctor need context.
     assert matcher.find("Silence", text) == {
         "keywords": ["Silence", "Amiya", "Reunion", "Rhodes Island", "Kal'tsit"],
-        "needs_context": ["Doctor", "Island"],
+        "needs_context": ["Doctor", "Island"], "guesses": {},
     }
-    assert matcher.find("", "RHODES ISLAND!") == {"keywords": ["Rhodes Island"], "needs_context": []}
+    assert matcher.find("", "RHODES ISLAND!") == {"keywords": ["Rhodes Island"], "needs_context": [], "guesses": {}}
+    # Misread names: Kal'tsiit is close enough to Kal'tsit; Guards lands on a class page, Docter on Doctor, so neither counts.
+    assert matcher.find("Kal'tsiit", "Docter, Guards! Amiya") == {
+        "keywords": ["Amiya", "Kal'tsit"], "needs_context": [], "guesses": {"Kal'tsit": "Kal'tsiit"},
+    }
 
 
 def test_parse():
@@ -88,7 +92,7 @@ def test_analyze():
         response = post(png)
         assert response.status_code == 200, response.json
         assert response.json == {"speaker": "Amiya", "text": "Doctor, the island!",
-                                 "keywords": ["Amiya"], "needs_context": ["Doctor", "Island"]}
+                                 "keywords": ["Amiya"], "needs_context": ["Doctor", "Island"], "guesses": {}}
     assert calls == [png]  # the second upload of the same image was served from the cache
     assert post(b"GIF89a" + bytes(100)).status_code == 415  # named .png, but the bytes say otherwise
     app.config["MAX_CONTENT_LENGTH"] = 1000
