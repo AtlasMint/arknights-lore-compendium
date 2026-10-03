@@ -1,6 +1,8 @@
 """Find the wiki pages a screenshot's speaker and dialog name, by scanning them against the term index."""
 import difflib
 import re
+from collections import defaultdict
+from functools import cache
 
 from backend.graph.builder import resolve
 from backend.index import build_index as index
@@ -37,6 +39,21 @@ def scan(text):
             i += 1
 
 
+@cache
+def qualified():
+    """Gameplay title -> the lore pages that qualify it: Guard -> [Guard (NPC)], Nightzmora -> [Nightzmora (country), ...].
+
+    The plain title is noise (a class, a term, a disambiguation), but the same word can name a character or a place.
+    """
+    pages = defaultdict(list)
+    for title in index.titles():
+        if title.endswith(")") and "/" not in title and resolve(title) == title:
+            plain = index.lookup(title.rsplit(" (", 1)[0])
+            if plain and resolve(plain) is None:
+                pages[plain].append(title)
+    return pages
+
+
 def guess(word):
     """The page a misread name probably meant ("Dublinl" -> Dublinn), or None.
 
@@ -53,8 +70,12 @@ def find(speaker, text):
 
     Whatever the speaker name matches is always a keyword. In the dialog, a match written all in lower
     case ("the silence here") is more likely an ordinary word than the operator Silence, so it goes to
-    needs_context with the NEEDS_CONTEXT titles, for the user to decide. Capitalized words that matched
-    nothing are checked for misreadings; a guess is a keyword too, and `guesses` says what was read.
+    needs_context with the NEEDS_CONTEXT titles, for the user to decide.
+
+    Capitalized words left over then get a second look. One that is a gameplay title offers the pages that
+    qualify it: a disambiguation's targets (Nightzmora (country), Nightzmora (race)) as keywords, since the plain
+    word means nothing else; a class or term's namesake (Guard (NPC)) under needs_context, since "Guard" is
+    usually the class. Any other goes through guess(); a guess is a keyword too, and `guesses` says what was read.
     """
     keywords, maybe, rest = [], [], f"{speaker}\n{text}".replace("’", "'")
     for title, phrase in scan(speaker):
@@ -66,8 +87,13 @@ def find(speaker, text):
     keywords, guesses = list(dict.fromkeys(keywords)), {}
     for word in WORD.findall(rest):
         word = word.removesuffix("'s")
-        if word[0].isupper() and len(word) >= MIN_GUESS and (title := guess(word)):
+        if not word[0].isupper():
+            continue
+        if plain := index.lookup(word):  # left over, so a title the noise filter rejected
+            for title in qualified().get(plain, ()):
+                (keywords if "Disambiguations" in index.categories(plain) else maybe).append(title)
+        elif len(word) >= MIN_GUESS and (title := guess(word)):
             if title not in keywords and title not in maybe and title not in NEEDS_CONTEXT:
                 guesses.setdefault(title, word)
-    return {"keywords": keywords + list(guesses), "needs_context": [t for t in dict.fromkeys(maybe) if t not in keywords],
-            "guesses": guesses}
+    keywords = list(dict.fromkeys(keywords + list(guesses)))
+    return {"keywords": keywords, "needs_context": [t for t in dict.fromkeys(maybe) if t not in keywords], "guesses": guesses}

@@ -22,6 +22,7 @@ wiki_client.all_pages = lambda: iter([
     {"title": "Silence"}, {"title": "Doctor"},
     {"title": "Reunion", "redirects": [{"title": "Reunion Movement"}]},
     {"title": "Guard", "categories": [{"title": "Category:Classes"}]},  # noise: a class, not lore
+    {"title": "Guard (NPC)", "categories": [{"title": "Category:NPCs"}]},  # but also a character
 ])
 build_index.build()
 
@@ -32,10 +33,11 @@ ollama_reader.read = lambda image: calls.append(image) or {"speaker": "Amiya", "
 
 def test_find():
     text = "Amiya’s orders, Doctor: the Reunion Movement is headed for Rhodes Island. Kal'tsit wants silence. Guard the island!"
-    # Speaker first. "silence" is lower case but the speaker already made it a keyword; "island" and Doctor need context.
+    # Speaker first. "silence" is lower case but the speaker already made it a keyword; "island" and Doctor need
+    # context, and so does the character Guard, since "Guard" is usually the class.
     assert matcher.find("Silence", text) == {
         "keywords": ["Silence", "Amiya", "Reunion", "Rhodes Island", "Kal'tsit"],
-        "needs_context": ["Doctor", "Island"], "guesses": {},
+        "needs_context": ["Doctor", "Island", "Guard (NPC)"], "guesses": {},
     }
     assert matcher.find("", "RHODES ISLAND!") == {"keywords": ["Rhodes Island"], "needs_context": [], "guesses": {}}
     # Misread names: Kal'tsiit is close enough to Kal'tsit; Guards lands on a class page, Docter on Doctor, so neither counts.
