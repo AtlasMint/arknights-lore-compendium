@@ -35,6 +35,25 @@ NOISE_CATEGORY_SUFFIXES = (" operations", " enemies", " devices", " Collectibles
                            " seasons", " tokens", " items", " materials", " resources", " mechanics", " currencies", " themes", " music")
 
 
+# Node types, first match wins, so a nation that is also a faction (Lungmen, Victoria) is a Faction. Character is a
+# sixth type beside the plan's five: 388 lore pages are NPCs (Talulah, Patriot, Theresa), who are neither operators nor
+# "Other". Races, lore concepts and plays are Other.
+TYPES = (
+    ("Operator", lambda c: c.endswith("-star")),
+    ("Event", {"Episodes", "Intermezzi", "Side Stories", "Story Collections", "Story events", "Collaboration events",
+               "Celebration events", "Festival events", "Carnival events", "Login events", "Anniversary events"}.__contains__),
+    ("Faction", {"Major factions", "Minor factions", "Enemy factions", "Non-Terran factions", "Nation-states",
+                 "Sarkaz tribes"}.__contains__),
+    ("Location", {"Locations"}.__contains__),
+    ("Character", {"NPCs", "Other characters", "Characters"}.__contains__),
+)
+
+
+def node_type(categories):
+    """Operator, Event, Faction, Location, Character or Other, from a page's categories."""
+    return next((name for name, match in TYPES if any(map(match, categories))), "Other")
+
+
 def normalize(title):
     """MediaWiki-style title: no leading colon or #anchor, spaces for underscores, first letter upper-case."""
     t = " ".join(title.split("#")[0].replace("_", " ").lstrip(": ").split())
