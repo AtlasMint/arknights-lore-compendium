@@ -2,15 +2,14 @@ import * as d3 from 'd3'
 import { useEffect, useRef, useState } from 'react'
 
 export default function App() {
-  // Keywords to seed the graph with. Only chips that are on are sent; the rest wait for the user to decide.
+  // Keywords to seed the graph with. Only chips that are on are sent; `shot` is the screenshot that introduced one.
   const [chips, setChips] = useState([
     { title: 'Amiya', on: true },
     { title: 'Reunion', on: true },
   ])
+  const [shots, setShots] = useState([]) // this session's screenshots: {n, preview, reading}
   const [draft, setDraft] = useState('')
   const [suggestions, setSuggestions] = useState([])
-  const [preview, setPreview] = useState(null)
-  const [reading, setReading] = useState(null)
   const [depth, setDepth] = useState(1)
   const [graph, setGraph] = useState(null)
   const [status, setStatus] = useState('')
@@ -35,26 +34,43 @@ export default function App() {
     return canvas.convertToBlob({ type: 'image/png' })
   }
 
+  // Each screenshot adds its keywords to the session's; a keyword already there keeps the screenshot that brought it.
   async function analyze(file) {
     if (!file) return
-    URL.revokeObjectURL(preview)
-    setPreview(URL.createObjectURL(file))
-    setReading(null)
-    setStatus('Reading the screenshot…')
+    const n = (shots.at(-1)?.n ?? 0) + 1
+    const preview = URL.createObjectURL(file)
+    setShots((old) => [...old, { n, preview, reading: null }])
+    setStatus(`Reading screenshot ${n}…`)
     const form = new FormData()
     form.append('image', await shrink(file), 'screenshot.png')
     const body = await api('/analyze', { method: 'POST', body: form })
-    if (!body) return
-    setReading(body)
-    setChips([
-      ...body.keywords.map((title) => ({ title, on: true, guess: body.guesses[title] })),
-      ...body.needs_context.map((title) => ({ title, on: false })),
-    ])
+    if (!body) {
+      URL.revokeObjectURL(preview)
+      setShots((old) => old.filter((s) => s.n !== n))
+      return
+    }
+    setShots((old) => old.map((s) => (s.n === n ? { ...s, reading: body } : s)))
+    setChips((old) => {
+      const fresh = (title) => !old.some((c) => c.title === title)
+      return [
+        ...old,
+        ...body.keywords.filter(fresh).map((title) => ({ title, on: true, guess: body.guesses[title], shot: n })),
+        ...body.needs_context.filter(fresh).map((title) => ({ title, on: false, shot: n })),
+      ]
+    })
     setStatus(
       body.keywords.length || body.needs_context.length
         ? 'Click a keyword to include or leave it out (dashed ones are left out; dotted ones are inferred, hover to see the word), then build the graph.'
-        : 'No wiki terms found. Add keywords by hand.',
+        : `No wiki terms found in screenshot ${n}. Add keywords by hand.`,
     )
+  }
+
+  function restart() {
+    shots.forEach((s) => URL.revokeObjectURL(s.preview))
+    setShots([])
+    setChips([])
+    setGraph(null)
+    setStatus('New session: drop a screenshot or add keywords.')
   }
 
   async function suggest(value) {
@@ -74,8 +90,9 @@ export default function App() {
   async function build(event) {
     event.preventDefault()
     const seeds = chips.filter((c) => c.on).map((c) => c.title).join(',')
+    const speaker = shots.map((s) => s.reading?.speaker).filter(Boolean).join(',')
     setStatus('Building… a cold cache takes several seconds.')
-    const body = await api(`/graph?${new URLSearchParams({ seeds, depth, speaker: reading?.speaker ?? '' })}`)
+    const body = await api(`/graph?${new URLSearchParams({ seeds, depth, speaker })}`)
     if (!body) return
     setGraph(body)
     setStatus(`${body.nodes.length} nodes, ${body.links.length} links`)
@@ -93,13 +110,18 @@ export default function App() {
               analyze(e.dataTransfer.files[0])
             }}
           >
-            Drop a dialog screenshot here, or{' '}
+            Drop a story screenshot here, or{' '}
             <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => analyze(e.target.files[0])} />
           </label>
-          {preview && <img className="preview" src={preview} alt="The uploaded screenshot" />}
-          {reading && (
+          {shots.map((s) => (
+            <figure key={s.n} className="shot">
+              <img src={s.preview} alt={`Screenshot ${s.n}`} />
+              <figcaption>{s.n}</figcaption>
+            </figure>
+          ))}
+          {shots.at(-1)?.reading && (
             <p className="reading">
-              <b>{reading.speaker || 'No speaker'}:</b> {reading.text}
+              <b>{shots.at(-1).reading.speaker || 'No speaker'}:</b> {shots.at(-1).reading.text}
             </p>
           )}
         </div>
@@ -109,11 +131,12 @@ export default function App() {
               key={chip.title}
               type="button"
               className={chip.guess ? 'chip guess' : 'chip'}
-              title={chip.guess && `Read as “${chip.guess}”`}
+              title={[chip.guess && `Read as “${chip.guess}”`, chip.shot && `From screenshot ${chip.shot}`].filter(Boolean).join('. ') || undefined}
               aria-pressed={chip.on}
               onClick={() => setChips(chips.map((c, j) => (i === j ? { ...c, on: !c.on } : c)))}
             >
               {chip.title}
+              {chip.shot && <sup aria-label={`from screenshot ${chip.shot}`}>{chip.shot}</sup>}
             </button>
           ))}
           <input
@@ -140,6 +163,9 @@ export default function App() {
             </select>
           </label>
           <button>Build graph</button>
+          <button type="button" onClick={restart}>
+            New session
+          </button>
           <output>{status}</output>
         </form>
       </header>
