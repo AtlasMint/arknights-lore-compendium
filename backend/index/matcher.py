@@ -17,6 +17,9 @@ NEEDS_CONTEXT = {"Doctor"}
 # while 0.8 let in sentence openers (There -> Theresa, Hence -> Fence) and 0.9 lost all but three true guesses.
 MIN_GUESS = 5  # "Red" -> Reed would be a guess at 3 letters
 CUTOFF = 0.85
+# Demonyms and plurals: Tarans -> Tara, Victorian -> Victoria, Sargonian -> Sargon, Lungmenite -> Lungmen. Shortest first,
+# so "Victorians" reaches Victoria through "ns" before "ians" could reach a page called Victor.
+SUFFIXES = ("s", "n", "ns", "ian", "ians", "ans", "ese", "ite")
 
 
 def scan(text):
@@ -55,11 +58,15 @@ def qualified():
 
 
 def guess(word):
-    """The page a misread name probably meant ("Dublinl" -> Dublinn), or None.
+    """The page a leftover name probably means, or None. Tried in order: a demonym or plural ("Tarans" -> Tara), then a
+    misreading ("Dublinl" -> Dublinn).
 
-    Only the single closest title counts, and only if it is a lore page: a guess that lands on a class or
+    A misreading counts only when the single closest title is a lore page: a guess that lands on a class or
     disambiguation page is dropped, not retried further away.
     """
+    for suffix in SUFFIXES:
+        if word.endswith(suffix) and (title := resolve(word[: -len(suffix)])):
+            return title
     # ponytail: linear over all ~19k titles, 11 ms a word; bucket titles by first letter if a log view ever drags
     closest = difflib.get_close_matches(word, index.titles(), n=1, cutoff=CUTOFF)
     return resolve(closest[0]) if closest else None

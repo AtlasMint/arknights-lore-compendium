@@ -23,6 +23,7 @@ wiki_client.all_pages = lambda: iter([
     {"title": "Reunion", "redirects": [{"title": "Reunion Movement"}]},
     {"title": "Guard", "categories": [{"title": "Category:Classes"}]},  # noise: a class, not lore
     {"title": "Guard (NPC)", "categories": [{"title": "Category:NPCs"}]},  # but also a character
+    {"title": "Tara"},
 ])
 build_index.build()
 
@@ -44,6 +45,8 @@ def test_find():
     assert matcher.find("Kal'tsiit", "Docter, Guards! Amiya") == {
         "keywords": ["Amiya", "Kal'tsit"], "needs_context": [], "guesses": {"Kal'tsit": "Kal'tsiit"},
     }
+    # A plural demonym.
+    assert matcher.find("", "Across the Tarans.") == {"keywords": ["Tara"], "needs_context": [], "guesses": {"Tara": "Tarans"}}
 
 
 def test_parse():
