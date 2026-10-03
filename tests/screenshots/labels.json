@@ -6,7 +6,8 @@
   "keywords": [
    "Necrass",
    "Dublinn",
-   "Victoria"
+   "Victoria",
+   "Tara"
   ]
  },
  {
@@ -18,7 +19,8 @@
    "The Brigadier",
    "Dublinn",
    "Necrass",
-   "Reed"
+   "Reed",
+   "Tara"
   ]
  },
  {
@@ -37,13 +39,13 @@
   "speaker": "",
   "text": "FC-7 Soul Spark Before Operation The Tarans' cries strengthen Reed's conviction, and everyone works together to escape from the hellish battle. FC-7 Soul Spark After Operation After they escape the battlefield, Bagpipe's emotions finally come to an explosive head. She questions Reed about the truth of the County Hillock incident, as well as everything regarding Dublinn. FC-ST-2 From the Ashes Interlude Most of the Tarans who followed Reed have chosen to keep fighting. At the same time, Eblana and the Duke of Wellington gaze out upon the horizon onboard a high-speed battleship. Dublinn's army is ready.",
   "keywords": [
-   "FC-7",
    "Reed",
    "Bagpipe",
    "County Hillock",
    "Dublinn",
    "Necrass",
-   "Duke of Wellington"
+   "Duke of Wellington",
+   "Tara"
   ]
  },
  {
@@ -110,9 +112,8 @@
   "speaker": "",
   "text": "CW-7 Castle in the Sky After Operation Saria and Ferdinand agree to work together. Silence infiltrates the S.H.A.F.T. Within a dark tunnel, in a rare about-face for her, Kal'tsit conceals nothing. CW-8 Between Past and Present Before Operation The Tin Man subdues Ho'olheyak. Saria and Ferdinand arrive at the airborne laboratory. At the end of the tunnel, the gates of truth gradually open to you. CW-8 Between Past and Present After Operation Jara heads off Silence. Kal'tsit heads off the 'Preserver.' A beam of light rises from Trimounts.",
   "keywords": [
-   "CW-7",
-   "CW-8",
    "Saria",
+   "Ferdinand Clooney",
    "Silence",
    "Kal'tsit",
    "Tin Man",
@@ -127,10 +128,10 @@
   "text": "'Lone Trail' CW-10 Lost Amongst the Stars Before Operation Saria walks past Muelsyse, and finally arrives in front of Kristen. Muddled thoughts, just like mistaken constellations, intertwine with each other. Are you sure you want to skip the story? Then, where does the boundary lie? Hm? Countless studies have shown that the evolution of life has not been a gradual process, contrary to the theories of the earliest scholars in this field. We wouldn't be standing here right now if we had only been taking one step at a time. Furthermore, if we presume that there is indeed a boundary drawn by a higher will, that determines how we should be acting. Shouldn't we try to look it in the eye first, before we decide to kneel or raise a flag of rebellion? ...A 'boundary'. This corridor... is also a boundary. If I keep walking along the corridor... I'll never reach wherever the 'eye' is. The 'H.A.M.H.R.R.'",
   "keywords": [
    "Lone Trail",
-   "CW-10",
    "Saria",
    "Muelsyse",
-   "Kristen Wright"
+   "Kristen Wright",
+   "Ahrens Parvis"
   ]
  },
  {
@@ -239,7 +240,8 @@
   "text": "Hence why the young Warwick sought to rediscover Taran history starting from the legend of King Gaeil. A fine thing to do, really.",
   "keywords": [
    "Duke of Wellington",
-   "Earl of Warwick"
+   "Earl of Warwick",
+   "Tara"
   ]
  },
  {
@@ -257,7 +259,8 @@
   "keywords": [
    "Kal'tsit",
    "Sargon",
-   "Nightzmora",
+   "Nightzmora (country)",
+   "Nightzmora (race)",
    "Kharanduu Khagan"
   ]
  },
