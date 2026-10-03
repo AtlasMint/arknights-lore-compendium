@@ -23,7 +23,10 @@ wiki_client.all_pages = lambda: iter([
     {"title": "Reunion", "redirects": [{"title": "Reunion Movement"}]},
     {"title": "Guard", "categories": [{"title": "Category:Classes"}]},  # noise: a class, not lore
     {"title": "Guard (NPC)", "categories": [{"title": "Category:NPCs"}]},  # but also a character
-    {"title": "Tara"},
+    {"title": "Candela Sanchez", "categories": [{"title": "Category:NPCs"}]}, {"title": "Tara"},
+    {"title": "County Hillock", "categories": [{"title": "Category:Locations"}]},
+    {"title": "Rim Billiton", "categories": [{"title": "Category:Nation-states"}]},
+    {"title": "Gavial the Invincible", "categories": [{"title": "Category:6-star"}]},
 ])
 build_index.build()
 
@@ -45,8 +48,14 @@ def test_find():
     assert matcher.find("Kal'tsiit", "Docter, Guards! Amiya") == {
         "keywords": ["Amiya", "Kal'tsit"], "needs_context": [], "guesses": {"Kal'tsit": "Kal'tsiit"},
     }
-    # A plural demonym.
-    assert matcher.find("", "Across the Tarans.") == {"keywords": ["Tara"], "needs_context": [], "guesses": {"Tara": "Tarans"}}
+    # A first name alone, and a plural demonym.
+    assert matcher.find("", "Ms. Candela met the Tarans.") == {
+        "keywords": ["Candela Sanchez", "Tara"], "needs_context": [], "guesses": {"Candela Sanchez": "Candela", "Tara": "Tarans"},
+    }
+    # One word of a place; "County" is an ordinary word and "Invincible" an epithet, so neither names a page.
+    assert matcher.find("", "County Trent, then Billiton. Invincible!") == {
+        "keywords": ["Rim Billiton"], "needs_context": [], "guesses": {"Rim Billiton": "Billiton"},
+    }
 
 
 def test_parse():

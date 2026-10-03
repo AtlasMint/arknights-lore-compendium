@@ -20,6 +20,21 @@ CUTOFF = 0.85
 # Demonyms and plurals: Tarans -> Tara, Victorian -> Victoria, Sargonian -> Sargon, Lungmenite -> Lungmen. Shortest first,
 # so "Victorians" reaches Victoria through "ns" before "ians" could reach a page called Victor.
 SUFFIXES = ("s", "n", "ns", "ian", "ians", "ans", "ese", "ite")
+# Pages people shorten to one word: a first name or surname, the distinctive word of a place or a group. Operators
+# are the "N-star" categories on top of these.
+NAMED = ("NPCs", "Other characters", "Locations", "Nation-states", "Major factions", "Minor factions", "Enemy factions",
+         "Non-Terran factions", "Races", "Race subgroups", "Sarkaz tribes")
+# Ordinary words that start or end one of those pages (County Hillock, Palace of Westhaleg, Little Black Sheep, Blue
+# Poison): never a name on their own, so never a guess. Listed from the index on 2026-10-03.
+# ponytail: hand-kept; a new page starting or ending with another ordinary word slips through until it is added here.
+# The upgrade is a lowercase-frequency check over cached page text, which would need the page cache at match time.
+GENERIC = set("""
+    Abyssal Agency Beauty Black Brown Castle Catch Chimes Church Cluster Commandant Commerce Commission Corps Corrupted
+    County Crimson Deathless Deity Delivering Demon Department Destructive Drudge Elite Empresses Father Galería Galleria
+    Garden Grain Great Group House Hunters Industries Island Keeper Little Military Museum Nothing Official Other Palace
+    Paradise Party Pegasi Poison Priest Prison Propeller Reckoner Recon Record Regulator Sheep Shrine Signora Snake Spring
+    Tower Trade Tutor Uncle Union Universität Violet Witch Withered
+    """.split())
 
 
 def scan(text):
@@ -57,19 +72,41 @@ def qualified():
     return pages
 
 
+@cache
+def names():
+    """First or last word of a NAMED page -> that page, where no other NAMED page starts or ends with it.
+
+    "Reserve Operator - Logistics" and its kin are left out: placeholders, not people. An alter title like
+    "Gavial the Invincible" gives only its first word, since the last is an epithet.
+    """
+    pages = defaultdict(set)
+    for title in index.titles():
+        if "/" in title or " - " in title or resolve(title) != title:
+            continue
+        if any(c in NAMED or c.endswith("-star") for c in index.categories(title)):
+            words = WORD.findall(title)
+            for word in {words[0]} if " the " in title else {words[0], words[-1]}:
+                if len(word) >= MIN_GUESS and word[0].isupper() and word not in GENERIC:
+                    pages[word].add(title)
+    return {word: next(iter(titles)) for word, titles in pages.items() if len(titles) == 1}
+
+
 def guess(word):
-    """The page a leftover name probably means, or None. Tried in order: a demonym or plural ("Tarans" -> Tara), then a
-    misreading ("Dublinl" -> Dublinn).
+    """The page a leftover name probably means, or None. Tried in order: a demonym or plural ("Tarans" -> Tara), a
+    misreading ("Dublinl" -> Dublinn), one word of a person, place or group ("Candela" -> Candela Sanchez,
+    "Hillock" -> County Hillock). An ordinary word (GENERIC) is never any of these.
 
     A misreading counts only when the single closest title is a lore page: a guess that lands on a class or
     disambiguation page is dropped, not retried further away.
     """
+    if word in GENERIC:
+        return None
     for suffix in SUFFIXES:
         if word.endswith(suffix) and (title := resolve(word[: -len(suffix)])):
             return title
     # ponytail: linear over all ~19k titles, 11 ms a word; bucket titles by first letter if a log view ever drags
     closest = difflib.get_close_matches(word, index.titles(), n=1, cutoff=CUTOFF)
-    return resolve(closest[0]) if closest else None
+    return (closest and resolve(closest[0])) or names().get(word)
 
 
 def find(speaker, text):
