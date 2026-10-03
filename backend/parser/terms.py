@@ -3,8 +3,10 @@
 # Linked from nearly everything, so they only add clutter.
 NOISE_TITLES = {"Terra"}
 
-# Categories of gameplay, media and meta pages: stages, mechanics, items, staff, and media about the
-# world rather than things in it. Tuned by reading the Amiya + Reunion graph.
+# Categories of gameplay, media and meta pages: stages, mechanics, items, furniture, staff, and media about the
+# world rather than things in it. The first rows were tuned by reading the Amiya + Reunion graph; the furniture,
+# base and item rows came from the v2 screenshot set, where 3,900 of the 5,691 pages passing the filter were
+# furniture, base skills and gameplay items, and "Castle" matched a ceiling lamp.
 NOISE_CATEGORIES = {
     "Mechanics", "Terminology", "Operation mechanics", "RIIC mechanics", "Negative Statuses",
     "Classes", "Class branches", "Operator rarities", "Facilities", "Game modes", "Integrated Strategies themes",
@@ -12,8 +14,21 @@ NOISE_CATEGORIES = {
     "Upgrade materials", "Consumables", "Event items", "Collectibles", "Thoughts", "Summons",
     "Artists", "Developers", "Music artists", "Voice actors", "Music",
     "Publications", "Comics", "Media", "Animations", "Terra Historicus lore posts", "Disambiguations",
+    # Furniture, by type; every furniture page carries one of these beside its theme.
+    "Decorations", "Seatings", "Wall Decorations", "Tables", "Ceiling Lamps", "Wall Lamps", "Ceilings", "Floors",
+    "Wallpapers", "Carpets", "Cabinets", "Beddings", "Plaques", "Functionals", "Interactables", "Furniture themes",
+    # The base, game modes and their items.
+    "Base skills", "Tongbaos", "Foldartals", "Sanity restoration", "Provisions", "EC Units", "Constructs", "Terrain",
+    "Support Items", "Support Devices", "Tokens", "Traps", "Currencies", "Other items", "Battle Records",
+    "Buffs", "Debuffs", "Elemental Injuries", "Skill Summaries", "Limited-time game modes", "Reclamation Algorithm",
+    "Contingency Contract Pennants", "Annihilation",
+    # Promotions, music and the real world. "Celebration", "Festival" and "Carnival events" are story events too
+    # (Lone Trail, Invitation to Wine, Dossoles Holiday), so they stay.
+    "Other events", "Main Theme episode release events", "Operator EPs", "EPs", "Original soundtracks", "Prelude Suite",
+    "Real-world", "Companies", "Guides", "User interface",
 }
-NOISE_CATEGORY_SUFFIXES = (" operations", " enemies", " devices", " Collectibles")
+NOISE_CATEGORY_SUFFIXES = (" operations", " enemies", " devices", " Collectibles",
+                           " seasons", " tokens", " items", " materials", " resources", " mechanics", " currencies", " themes", " music")
 
 
 def normalize(title):
