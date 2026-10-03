@@ -20,6 +20,7 @@ jobs:
       - run: python -m tests.test_v0
       - run: python -m tests.test_v1
       - run: python -m tests.test_v2
+      - run: python -m tests.test_v3
 
   frontend:
     strategy:
@@ -35,4 +36,5 @@ jobs:
       - uses: oven-sh/setup-bun@v2
       - run: bun install --frozen-lockfile
       - run: bun run lint
+      - run: bun test
       - run: bun run build
