@@ -35,13 +35,18 @@ def parse(reply):
 
 def read(image):
     """Image bytes -> {"speaker", "text"}. Raises RuntimeError when Ollama is down, the model isn't pulled, or Ollama refuses."""
+    return parse(chat(PROMPT, SCHEMA, [base64.b64encode(image).decode()]))
+
+
+def chat(prompt, schema, images=()):
+    """The model's reply to one prompt, held to a JSON schema. Raises RuntimeError as read() does."""
     body = {
         "model": config.READER_MODEL,
-        "messages": [{"role": "user", "content": PROMPT, "images": [base64.b64encode(image).decode()]}],
-        "format": SCHEMA,
+        "messages": [{"role": "user", "content": prompt, "images": list(images)}],
+        "format": schema,
         "stream": False,
         "think": False,  # reading text needs no reasoning; qwen3.5:4b would think by default
-        "options": {"temperature": 0},  # the same screenshot should read the same way every time
+        "options": {"temperature": 0},  # the same input should get the same answer every time
     }
     request = urllib.request.Request(config.READER_URL + "/api/chat", data=json.dumps(body).encode(),
                                      headers={"Content-Type": "application/json"})
@@ -54,4 +59,4 @@ def read(image):
         raise RuntimeError(f"Ollama error {e.code}: {e.read().decode(errors='replace')}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"Ollama isn't running at {config.READER_URL}. Start it: brew services start ollama (macOS) or ollama serve.") from e
-    return parse(data["message"]["content"])
+    return data["message"]["content"]
