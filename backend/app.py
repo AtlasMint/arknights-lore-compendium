@@ -8,6 +8,7 @@ from backend import config, stories
 from backend.graph.builder import build_graph
 from backend.index import matcher
 from backend.index.build_index import lookup, suggest
+from backend.scraper import cache
 from backend.vision import reader
 
 app = Flask(__name__)
@@ -71,3 +72,15 @@ def terms():
 def timeline():
     """GET /stories -> {"movements", "acts", "stories", "edges"}: every story released on Global, for ticking progress."""
     return stories.timeline()
+
+
+@app.get("/icon/<code>")
+def icon(code):
+    """GET /icon/AE -> a Movement's 90x90 icon, fetched from the wiki once."""
+    if code not in {m["code"] for m in stories.timeline()["movements"]}:
+        return {"error": "No such Movement."}, 404
+    try:
+        data = cache.get_file(f"{code}_arc.png")
+    except OSError as e:
+        return {"error": f"Couldn't fetch the icon: {e}"}, 502
+    return data, {"Content-Type": "image/png", "Cache-Control": "max-age=604800"}

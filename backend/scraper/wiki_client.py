@@ -66,6 +66,11 @@ def fetch_wikitext(titles):
     return out
 
 
+def fetch_file(name):
+    """Bytes of an uploaded file, such as "MS_arc.png"."""
+    return _fetch(config.WIKI_FILES + urllib.parse.quote(name))
+
+
 def all_pages():
     """Yield every main-namespace article with its visible categories and the redirects pointing to it.
 

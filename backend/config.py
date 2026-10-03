@@ -2,6 +2,7 @@
 from pathlib import Path
 
 WIKI_API = "https://arknights.wiki.gg/api.php"
+WIKI_FILES = "https://arknights.wiki.gg/wiki/Special:FilePath/"  # redirects to an uploaded file's bytes
 # MediaWiki API etiquette: say who is asking. Add a contact URL or email here before sharing the tool.
 USER_AGENT = "ArknightsLoreCompendium/0.1 (personal fan project)"
 REQUEST_DELAY = 1.0          # seconds between wiki requests

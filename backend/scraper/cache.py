@@ -29,3 +29,15 @@ def get_pages(titles):
             db.commit()  # keep each batch even if a later one fails
             out.update(fetched)
     return out
+
+
+def get_file(name):
+    """Bytes of a wiki file such as a Movement icon, fetched once and then kept: icons don't change like page text."""
+    with connect() as db:
+        db.execute("CREATE TABLE IF NOT EXISTS files (name TEXT PRIMARY KEY, data BLOB NOT NULL)")
+        row = db.execute("SELECT data FROM files WHERE name = ?", (name,)).fetchone()
+        if row:
+            return row[0]
+        data = wiki_client.fetch_file(name)
+        db.execute("INSERT OR REPLACE INTO files VALUES (?, ?)", (name, data))
+    return data
