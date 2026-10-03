@@ -5,6 +5,7 @@
 from flask import Flask, request
 
 from backend import config, stories
+from backend.graph import lore
 from backend.graph.builder import build_graph
 from backend.index import matcher
 from backend.index.build_index import lookup, suggest
@@ -28,7 +29,7 @@ def image_type(data):
 
 @app.get("/graph")
 def graph():
-    """GET /graph?seeds=Amiya,Reunion&depth=1&speaker=Amiya -> {"nodes": [...], "links": [...]}
+    """GET /graph?seeds=Amiya,Reunion&depth=1&speaker=Amiya -> {"nodes": [...], "links": [...], "tags": {...}}
 
     `speaker` is optional: if it resolves to one of the seeds, that seed weighs more in the ranking.
     """
@@ -40,7 +41,7 @@ def graph():
     if None in seeds:
         return {"error": "Not on the wiki: " + ", ".join(t for t, s in zip(terms, seeds) if s is None)}, 400
     speaker = lookup(request.args.get("speaker", "")[:100])
-    return build_graph(seeds, depth, speaker=speaker if speaker in seeds else None)
+    return lore.describe(build_graph(seeds, depth, speaker=speaker if speaker in seeds else None))
 
 
 @app.post("/analyze")
