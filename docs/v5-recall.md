@@ -5,7 +5,7 @@
 
 ## Goal
 
-[v3](v3-richer-lore.md) keys everything to the stories the player has ticked. This version uses that same data to answer "what did I learn, and when". It is the Thousand Tomes and State of the Realm half of Final Fantasy XVI's lore design, where entries update as the story progresses and the relationship chart can be stepped through history.
+[v3](archive/v3-richer-lore.md) keys everything to the stories the player has ticked. This version uses that same data to answer "what did I learn, and when". It is the Thousand Tomes and State of the Realm half of Final Fantasy XVI's lore design, where entries update as the story progresses and the relationship chart can be stepped through history.
 
 ## Tasks
 
