@@ -15,6 +15,7 @@ MAX_NODES = 150              # final graph size, and the most pages expanded per
 RECIPROCAL_BONUS = 2         # added to both directions when two pages link each other
 SECTION_BONUS = 1            # added per section in which both ends of an edge are linked
 SPEAKER_WEIGHT = 3           # the speaker's share of the PageRank restart, against 1 for each other seed
+MAX_SEEDS = 50               # most seeds one graph takes: a session of several screenshots adds up
 
 GLOBAL_LAUNCH = "2020-01-16" # Global's first day, from the wiki's Arknights page; Prologue to Episode 04 date from it
 

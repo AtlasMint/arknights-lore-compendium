@@ -12,7 +12,7 @@ def test_speaker_weight():
     plain = dict(scoring.prune(G, ["Alpha", "Delta"], max_nodes=3).nodes(data="score"))
     tilted = dict(scoring.prune(G, ["Alpha", "Delta"], max_nodes=3, weights={"Alpha": 1, "Delta": 3}).nodes(data="score"))
     assert tilted["Delta"] > plain["Delta"] and tilted["Alpha"] < plain["Alpha"]
-    graph = builder.build_graph(["Alpha", "Delta"], speaker="Delta")
+    graph = builder.build_graph(["Alpha", "Delta"], speakers={"Delta"})
     assert {n["id"]: n["seed"] for n in graph["nodes"]}["Delta"]
 
 

@@ -31,17 +31,18 @@ def image_type(data):
 def graph():
     """GET /graph?seeds=Amiya,Reunion&depth=1&speaker=Amiya -> {"nodes": [...], "links": [...], "tags": {...}}
 
-    `speaker` is optional: if it resolves to one of the seeds, that seed weighs more in the ranking.
+    `speaker` is optional and may list several names, one per screenshot: those that resolve to seeds weigh more in
+    the ranking.
     """
     terms = [t.strip() for t in request.args.get("seeds", "").split(",") if t.strip()]
     depth = request.args.get("depth", config.DEPTH, type=int)
-    if not 1 <= len(terms) <= 10 or any(len(t) > 100 for t in terms) or not 1 <= depth <= 3:
-        return {"error": "Give 1 to 10 comma-separated seeds (up to 100 characters each) and a depth from 1 to 3."}, 400
+    if not 1 <= len(terms) <= config.MAX_SEEDS or any(len(t) > 100 for t in terms) or not 1 <= depth <= 3:
+        return {"error": f"Give 1 to {config.MAX_SEEDS} comma-separated seeds (up to 100 characters each) and a depth from 1 to 3."}, 400
     seeds = [lookup(t) for t in terms]
     if None in seeds:
         return {"error": "Not on the wiki: " + ", ".join(t for t, s in zip(terms, seeds) if s is None)}, 400
-    speaker = lookup(request.args.get("speaker", "")[:100])
-    return lore.describe(build_graph(seeds, depth, speaker=speaker if speaker in seeds else None))
+    speakers = {lookup(s[:100]) for s in request.args.get("speaker", "").split(",")[:config.MAX_SEEDS]}
+    return lore.describe(build_graph(seeds, depth, speakers=speakers & set(seeds)))
 
 
 @app.post("/analyze")

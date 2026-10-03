@@ -68,8 +68,8 @@ def build(seeds, depth=config.DEPTH, max_nodes=config.MAX_NODES):
     return G
 
 
-def build_graph(seeds, depth=config.DEPTH, max_nodes=config.MAX_NODES, speaker=None):
-    """Canonical seed titles -> D3 JSON of the pruned lore graph. `speaker`, one of the seeds, weighs more."""
+def build_graph(seeds, depth=config.DEPTH, max_nodes=config.MAX_NODES, speakers=()):
+    """Canonical seed titles -> D3 JSON of the pruned lore graph. `speakers`, seeds who spoke in a screenshot, weigh more."""
     seeds = list(dict.fromkeys(seeds))
-    weights = {s: config.SPEAKER_WEIGHT if s == speaker else 1 for s in seeds}
+    weights = {s: config.SPEAKER_WEIGHT if s in speakers else 1 for s in seeds}
     return export.to_d3(scoring.prune(build(seeds, depth, max_nodes), seeds, max_nodes, weights))
