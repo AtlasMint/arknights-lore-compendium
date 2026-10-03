@@ -4,7 +4,7 @@
 """
 from flask import Flask, request
 
-from backend import config
+from backend import config, stories
 from backend.graph.builder import build_graph
 from backend.index import matcher
 from backend.index.build_index import lookup, suggest
@@ -65,3 +65,9 @@ def too_large(_):
 def terms():
     """GET /terms?prefix=ami -> ["Amiya", ...], for the keyword box's autocomplete."""
     return suggest(request.args.get("prefix", "")[:100])
+
+
+@app.get("/stories")
+def timeline():
+    """GET /stories -> {"movements", "acts", "stories", "edges"}: every story released on Global, for ticking progress."""
+    return stories.timeline()
