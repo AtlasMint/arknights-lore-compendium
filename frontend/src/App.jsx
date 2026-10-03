@@ -1,5 +1,7 @@
 import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { visibility, visibleGraph } from './lore.js'
+import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
@@ -16,6 +18,25 @@ const SHAPES = Object.fromEntries(TYPES)
 // the rest share the neutral. The node labels and the detail panel name every faction.
 const FACTION_COLORS = 3
 
+// A value this browser kept, or the fallback when there is none or storage is blocked.
+function useStored(key, fallback) {
+  const [value, setValue] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(key)) ?? fallback
+    } catch {
+      return fallback
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem(key, JSON.stringify(value))
+    } catch {
+      // private window or blocked storage: progress lasts until the tab closes
+    }
+  }, [key, value])
+  return [value, setValue]
+}
+
 const wikiUrl = (title) => WIKI + encodeURIComponent(title.replaceAll(' ', '_'))
 
 export default function App() {
@@ -30,6 +51,10 @@ export default function App() {
   const [depth, setDepth] = useState(1)
   const [graph, setGraph] = useState(null)
   const [status, setStatus] = useState('')
+  const [view, setView] = useState('map')
+  const [stories, setStories] = useState(null)
+  const [tickedList, setTickedList] = useStored('ticked', [])
+  const [overrides, setOverrides] = useStored('overrides', {}) // term -> "hide" | "show", correcting the tags
   const [types, setTypes] = useState(new Set(TYPES.map(([type]) => type)))
   const [selected, setSelected] = useState(null)
 
@@ -42,13 +67,23 @@ export default function App() {
     return null
   }
 
-  // The graph as shown: a type left out of the legend goes, with its links.
-  const visible = useMemo(() => {
-    if (!graph) return null
-    const kept = new Set(graph.nodes.filter((n) => types.has(n.type)).map((n) => n.id))
-    return { nodes: graph.nodes.filter((n) => kept.has(n.id)), links: graph.links.filter((l) => kept.has(l.source) && kept.has(l.target)) }
-  }, [graph, types])
-  // Faction colours follow the faction, ranked once per graph, so filtering a type never repaints the survivors.
+  useEffect(() => {
+    fetch('/stories')
+      .then((response) => (response.ok ? response.json() : Promise.reject(new Error(response.status))))
+      .then(setStories)
+      .catch(() => setStatus('Could not load the stories, so only your keywords show on the map.'))
+  }, [])
+
+  const ticked = useMemo(() => new Set(tickedList), [tickedList])
+  const everything = !!stories && stories.stories.every((s) => ticked.has(s.id))
+  const seeds = useMemo(() => new Set(graph?.nodes.filter((n) => n.seed).map((n) => n.id)), [graph])
+  const isVisible = useMemo(
+    () => visibility({ tags: graph?.tags ?? {}, ticked, everything, overrides, seeds }),
+    [graph, ticked, everything, overrides, seeds],
+  )
+  const visible = useMemo(() => graph && visibleGraph(graph, isVisible, types), [graph, isVisible, types])
+  const hidden = graph?.nodes.filter((n) => !isVisible(n.id)) ?? []
+  // Faction colours follow the faction, ranked once per graph, so ticking a story never repaints the survivors.
   const factionColors = useMemo(() => {
     const score = d3.rollup(graph?.nodes.filter((n) => n.faction) ?? [], (ns) => d3.sum(ns, (n) => n.score), (n) => n.faction)
     const top = [...score].sort((a, b) => b[1] - a[1]).slice(0, FACTION_COLORS)
@@ -129,6 +164,7 @@ export default function App() {
     if (!body) return
     setGraph(body)
     setSelected(null)
+    setView('map')
     setStatus(`${body.nodes.length} nodes, ${body.links.length} links`)
   }
 
@@ -203,10 +239,21 @@ export default function App() {
           <button type="button" onClick={restart}>
             New session
           </button>
+          <nav role="tablist" aria-label="View">
+            <button type="button" role="tab" aria-selected={view === 'map'} onClick={() => setView('map')}>
+              Lore map
+            </button>
+            <button type="button" role="tab" aria-selected={view === 'stories'} onClick={() => setView('stories')}>
+              Stories read {stories ? `(${stories.stories.filter((s) => ticked.has(s.id)).length}/${stories.stories.length})` : ''}
+            </button>
+          </nav>
           <output>{status}</output>
         </form>
       </header>
-      {visible && (
+      {view === 'stories' && stories && (
+        <Stories data={stories} ticked={ticked} onTicked={(next) => setTickedList([...next])} />
+      )}
+      {view === 'map' && visible && (
         <main className="map">
           <Graph data={visible} colors={factionColors} selected={selected} onSelect={setSelected} />
           <aside className="legend" aria-label="Legend">
@@ -238,11 +285,27 @@ export default function App() {
                 Other faction, or none
               </li>
             </ul>
+            {!!hidden.length && (
+              <details>
+                <summary>{hidden.length} hidden: show names (spoilers)</summary>
+                <ul>
+                  {hidden.map((n) => (
+                    <li key={n.id}>
+                      {n.id}{' '}
+                      <button type="button" onClick={() => setOverrides({ ...overrides, [n.id]: 'show' })}>
+                        Show anyway
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </aside>
           {node && (
             <Detail
               node={node}
               links={visible.links.filter((l) => l.source === node.id || l.target === node.id)}
+              {...{ isVisible, overrides, setOverrides }}
               shot={shotOf(node.id)}
               onSelect={setSelected}
             />
@@ -253,8 +316,10 @@ export default function App() {
   )
 }
 
-// One node: what it is, its summary, a link to its wiki page, and its connections.
-function Detail({ node, links, shot, onSelect }) {
+// What the player may know about one node: its summary without sentences that name a hidden term, and its links.
+function Detail({ node, links, isVisible, overrides, setOverrides, shot, onSelect }) {
+  const sentences = node.summary.filter((s) => s.terms.every(isVisible))
+  const withheld = node.summary.length - sentences.length
   return (
     <aside className="detail" aria-label={`About ${node.id}`}>
       <button type="button" className="close" aria-label="Close" onClick={() => onSelect(null)}>
@@ -270,7 +335,8 @@ function Detail({ node, links, shot, onSelect }) {
           .filter(Boolean)
           .join(' · ')}
       </p>
-      <p>{node.summary.map((s) => s.text).join(' ')}</p>
+      <p>{sentences.map((s) => s.text).join(' ') || 'Nothing you have read yet.'}</p>
+      {withheld > 0 && <p className="meta">{withheld} more sentence{withheld > 1 ? 's' : ''} once you read further.</p>}
       <h3>Connections</h3>
       <ul>
         {[...links]
@@ -286,13 +352,26 @@ function Detail({ node, links, shot, onSelect }) {
             )
           })}
       </ul>
+      {!node.seed && (
+        <button type="button" onClick={() => setOverrides({ ...overrides, [node.id]: 'hide' })}>
+          Hide this
+        </button>
+      )}
+      {overrides[node.id] && (
+        <button
+          type="button"
+          onClick={() => setOverrides(Object.fromEntries(Object.entries(overrides).filter(([term]) => term !== node.id)))}
+        >
+          Undo “{overrides[node.id] === 'show' ? 'show anyway' : 'hide'}”
+        </button>
+      )}
     </aside>
   )
 }
 
 function Graph({ data, colors, selected, onSelect }) {
   const svgRef = useRef(null)
-  const positions = useRef(new Map()) // where each node was, so filtering a type doesn't scatter the map
+  const positions = useRef(new Map()) // where each node was, so ticking a story doesn't scatter the map
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
@@ -349,7 +428,7 @@ function Graph({ data, colors, selected, onSelect }) {
         node.attr('transform', (d) => `translate(${d.x},${d.y})`)
         nodes.forEach((d) => positions.current.set(d.id, { x: d.x, y: d.y }))
       })
-    if (nodes.every((d) => d.x !== undefined)) simulation.alpha(0.1) // nodes were only taken away: settle, don't re-shuffle
+    if (nodes.every((d) => d.x !== undefined)) simulation.alpha(0.1) // only hidden nodes left: settle, don't re-shuffle
 
     node.call(
       d3

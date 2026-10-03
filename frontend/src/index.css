@@ -7,6 +7,7 @@
   --series-2: #eb6834;
   --series-3: #1baf7a;
   --node: #898781; /* other faction, or none */
+  --good: #0ca30c; /* a story read */
   --muted: #898781;
   --line: #8884;
 }
@@ -94,6 +95,12 @@ header > * {
 
 .chip.guess {
   border-style: dotted; /* inferred from a misread name, a demonym or a first name alone; the tooltip shows the word as read */
+}
+
+[role='tab'][aria-selected='true'],
+.movements [aria-pressed='true'] {
+  font-weight: 600;
+  outline: 2px solid CanvasText;
 }
 
 /* The lore map */
@@ -268,4 +275,119 @@ button.link {
   font: inherit;
   text-decoration: underline;
   cursor: pointer;
+}
+
+/* The stories timeline */
+
+.stories {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 0.5rem 1rem;
+  gap: 0.5rem;
+}
+
+.controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+}
+
+/* The game's Movement icons are white on transparent: dark ink on a light page. */
+.icon {
+  filter: invert(1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .icon {
+    filter: none;
+  }
+}
+
+.movements button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.canvas {
+  flex: 1;
+  min-height: 0;
+  overflow: auto; /* wider than the screen scrolls sideways */
+}
+
+.canvas svg {
+  display: block;
+}
+
+.tick line {
+  stroke: var(--line);
+}
+
+.tick text,
+.act {
+  font-size: 11px;
+  fill: var(--muted);
+}
+
+.band rect {
+  fill: color-mix(in srgb, CanvasText 4%, Canvas);
+  stroke: Canvas;
+  stroke-width: 2px;
+}
+
+.band text {
+  font-size: 12px;
+  font-weight: 600;
+  fill: CanvasText;
+}
+
+.edge {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.5px;
+}
+
+.edge.related {
+  stroke-dasharray: 4 3;
+}
+
+.edge.lit {
+  stroke: CanvasText;
+}
+
+.edge.dim {
+  opacity: 0.3;
+}
+
+.story {
+  cursor: pointer;
+}
+
+.story rect {
+  fill: color-mix(in srgb, CanvasText 12%, Canvas);
+  stroke: color-mix(in srgb, CanvasText 30%, Canvas);
+}
+
+.story.ticked rect {
+  fill: color-mix(in srgb, var(--good) 30%, Canvas);
+  stroke: var(--good);
+}
+
+.story text {
+  font-size: 12px;
+  fill: CanvasText;
+  pointer-events: none;
+}
+
+.story.faded,
+.story.dim {
+  opacity: 0.4;
+}
+
+.story:focus-visible rect {
+  stroke: CanvasText;
+  stroke-width: 2px;
 }
