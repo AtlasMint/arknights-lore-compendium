@@ -26,8 +26,12 @@ NOISE_CATEGORIES = {
     # (Lone Trail, Invitation to Wine, Dossoles Holiday), so they stay.
     "Other events", "Main Theme episode release events", "Operator EPs", "EPs", "Original soundtracks", "Prelude Suite",
     "Real-world", "Companies", "Guides", "User interface",
+    # Supply and chip stages by type, summons and enemy traits, tournaments and joke events: found as v3's "Other" nodes.
+    "Tough Siege", "Aerial Threat", "Cargo Escort", "Training Ground", "Tactical Drill", "Resource Search",
+    "Solid Defense", "Fierce Attack", "Unstoppable Charge", "Fearless Protection", "Reinforcements", "Enemy properties",
+    "Features", "Tournaments", "April Fools", "Browse",
 }
-NOISE_CATEGORY_SUFFIXES = (" operations", " enemies", " devices", " Collectibles",
+NOISE_CATEGORY_SUFFIXES = (" operations", " enemies", " devices", " Collectibles", " Provisions", " OSTs",
                            " seasons", " tokens", " items", " materials", " resources", " mechanics", " currencies", " themes", " music")
 
 
