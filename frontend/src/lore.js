@@ -20,8 +20,6 @@ export function visibleGraph(graph, isVisible, types) {
   return { nodes: graph.nodes.filter((n) => kept.has(n.id) && (n.seed || linked.has(n.id))), links }
 }
 
-}
-
 // Clicking an Episode ticks it and every Episode before it; clicking a ticked one unticks it and every one after.
 // Any other story ticks on its own.
 export function toggleStory(stories, ticked, id) {
