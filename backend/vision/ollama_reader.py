@@ -11,8 +11,10 @@ import urllib.request
 from backend import config
 
 PROMPT = (
-    "This is a screenshot of story dialog from the game Arknights. Reply with JSON only, no commentary: "
-    '{"speaker": "<the name in the speaker box, or empty if there is none>", "text": "<the dialog text, exactly as written>"}'
+    "This is a screenshot from the game Arknights: story dialog, the story log, a choice, or a chapter menu. "
+    "Reply with JSON only, no commentary: "
+    '{"speaker": "<the name in the speaker box, or empty if there is none>", '
+    '"text": "<all the story text on screen, exactly as written, in reading order, including the names beside lines>"}'
 )
 # Ollama turns this into a grammar, so the reply can only be an object with these two strings.
 SCHEMA = {"type": "object", "properties": {"speaker": {"type": "string"}, "text": {"type": "string"}}, "required": ["speaker", "text"]}
