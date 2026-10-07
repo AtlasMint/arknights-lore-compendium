@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { learnedIn, visibility, visibleGraph } from './lore.js'
+import { GAP, learnedIn, visibility, visibleGraph } from './lore.js'
 import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
@@ -515,7 +515,7 @@ function Graph({ data, colors, selected, onSelect, label }) {
       .forceSimulation(nodes)
       .force('link', d3.forceLink(links).id((d) => d.id).distance(70))
       .force('charge', d3.forceManyBody().strength(-160))
-      .force('collide', d3.forceCollide((d) => radius(d.score) + 2))
+      .force('collide', d3.forceCollide((d) => 1.7 * radius(d.score) + GAP / 2)) // a star or diamond of area πr² reaches 1.7r from its centre
       .force('center', d3.forceCenter(width / 2, height / 2))
       .on('tick', () => {
         link
