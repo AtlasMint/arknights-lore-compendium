@@ -2,6 +2,9 @@
 
     flask --app backend.app run --port 5001    # macOS AirPlay already listens on 5000
 """
+import json
+import os
+
 from flask import Flask, request
 
 from backend import config, stories
@@ -101,3 +104,44 @@ def relationships():
         return {"labels": [labels.label(a, b) for a, b in pairs]}
     except (OSError, RuntimeError) as e:
         return {"error": f"Couldn't label the links: {e}"}, 502
+
+
+def valid_progress(body):
+    """The progress a client sent, if it is what the file holds: ticked story titles, hide-or-show overrides by term,
+    and the fog toggle. None for anything else, so the file only ever holds that shape."""
+    if not isinstance(body, dict):
+        return None
+    ticked, overrides, fog = body.get("ticked", []), body.get("overrides", {}), body.get("fog", False)
+    titles = lambda xs: all(isinstance(x, str) and len(x) <= 200 for x in xs)
+    if not (isinstance(ticked, list) and len(ticked) <= 1000 and titles(ticked)
+            and isinstance(overrides, dict) and len(overrides) <= 10000 and titles(overrides)
+            and all(v in ("hide", "show") for v in overrides.values()) and isinstance(fog, bool)):
+        return None
+    return {"ticked": ticked, "overrides": overrides, "fog": fog}
+
+
+@app.get("/progress")
+def progress():
+    """GET /progress -> {"ticked": [...], "overrides": {...}, "fog": false} from the progress file; 404 if there is none yet."""
+    try:
+        saved = valid_progress(json.loads(config.PROGRESS_PATH.read_text("utf-8")))
+    except FileNotFoundError:
+        return {"error": "No progress saved yet."}, 404
+    except (OSError, ValueError) as e:
+        return {"error": f"Couldn't read {config.PROGRESS_PATH}: {e}"}, 500
+    if saved is None:
+        return {"error": f"{config.PROGRESS_PATH} isn't a progress file. Fix it or move it away."}, 500
+    return saved
+
+
+@app.put("/progress")
+def save_progress():
+    """PUT /progress with the same object -> saved to the progress file, whole or not at all, and echoed back."""
+    body = valid_progress(request.get_json(silent=True))
+    if body is None:
+        return {"error": 'Send {"ticked": [titles], "overrides": {term: "hide" or "show"}, "fog": true or false}.'}, 400
+    config.PROGRESS_PATH.parent.mkdir(exist_ok=True)
+    draft = config.PROGRESS_PATH.with_suffix(".tmp")
+    draft.write_text(json.dumps(body, indent=1, ensure_ascii=False) + "\n", "utf-8")
+    os.replace(draft, config.PROGRESS_PATH)  # the old file stays whole until the new one is complete
+    return body

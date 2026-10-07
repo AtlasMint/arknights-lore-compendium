@@ -8,6 +8,7 @@ USER_AGENT = "ArknightsLoreCompendium/0.1 (personal fan project)"
 REQUEST_DELAY = 1.0          # seconds between wiki requests
 CACHE_TTL = 7 * 24 * 3600    # seconds before a cached page is fetched again
 DB_PATH = Path(__file__).resolve().parent.parent / "data" / "wiki.db"
+PROGRESS_PATH = DB_PATH.with_name("progress.json")  # the stories read, the hide/show corrections and the fog toggle
 
 DEPTH = 1                    # link hops out from the seeds; 2 is a fuller map, 3 pulls in most of the wiki
 MAX_NODES = 150              # final graph size, and the most pages expanded per BFS level
