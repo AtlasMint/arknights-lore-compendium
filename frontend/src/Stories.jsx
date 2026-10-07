@@ -111,7 +111,7 @@ export default function Stories({ data, ticked, onTicked }) {
                   .filter(Boolean)
                   .join('\n')}
               </title>
-              <rect width={s.w} height={layout.row - 4} rx={4} />
+              <rect width={s.w} height={layout.node} rx={4} />
               {s.movement && <image className="icon" href={`/icon/${s.movement}`} x={4} y={2} width={18} height={18} />}
               <text x={s.movement ? 26 : 8} y={15}>
                 {ticked.has(s.id) ? '✓ ' : ''}

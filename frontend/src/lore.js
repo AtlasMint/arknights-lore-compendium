@@ -53,8 +53,9 @@ export const BANDS = [
   ['crossover', 'Crossovers'],
 ]
 const PAD = 12 // canvas margin
-const GAP = 8 // least space between two nodes in a row
-const ROW = 26 // row pitch; a node is ROW - 4 tall
+export const GAP = 16 // least space between two nodes, along a row and between rows
+const NODE = 22 // a node's height
+const ROW = NODE + GAP // row pitch
 const HEAD = 22 // band title
 const ACTS = 16 // the Act labels above the Episode chain
 const AXIS = 24 // year ticks or column headers
@@ -109,7 +110,7 @@ export function layoutStories(data, { tab, movement, measure }) {
   } else {
     const rank = (column) => (column === 'to 1096' ? 0 : column === 'Undated' ? 2 : 1)
     const names = [...new Set(items.map(yearColumn))].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
-    const step = widest + 3 * GAP
+    const step = widest + 2 * GAP
     items.forEach((s) => (s.x = PAD + names.indexOf(yearColumn(s)) * step))
     ticks = names.map((label, i) => ({ x: PAD + i * step, label }))
   }
@@ -136,14 +137,14 @@ export function layoutStories(data, { tab, movement, measure }) {
       const [a, b] = [at.get(e.source), at.get(e.target)].sort((p, q) => p.x - q.x)
       if (a.x + a.w <= b.x) {
         // side by side: from the right end of one to the left end of the other
-        const [x1, y1, x2, y2] = [a.x + a.w, a.y + ROW / 2 - 2, b.x, b.y + ROW / 2 - 2]
+        const [x1, y1, x2, y2] = [a.x + a.w, a.y + NODE / 2, b.x, b.y + NODE / 2]
         return { ...e, d: `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}` }
       }
       // stacked in one column: from the bottom of the upper to the top of the lower
       const [p, q] = [a, b].sort((m, n) => m.y - n.y)
-      const [x1, y1, x2, y2] = [p.x + p.w / 2, p.y + ROW - 4, q.x + q.w / 2, q.y]
+      const [x1, y1, x2, y2] = [p.x + p.w / 2, p.y + NODE, q.x + q.w / 2, q.y]
       return { ...e, d: `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}` }
     })
   const width = d3.max(items, (s) => s.x + s.w) + PAD
-  return { width: Math.max(width, ...ticks.map((t) => t.x + 60)), height: y, items, bands, ticks, acts, edges, row: ROW }
+  return { width: Math.max(width, ...ticks.map((t) => t.x + 60)), height: y, items, bands, ticks, acts, edges, node: NODE }
 }
