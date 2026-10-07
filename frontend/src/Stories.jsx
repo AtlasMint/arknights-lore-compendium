@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { layoutStories, toggleStory, uncovered } from './lore.js'
 
 let context
@@ -26,6 +26,10 @@ export default function Stories({ data, ticked, onTicked, fog, onFog }) {
   const edges = layout.edges.filter((e) => e.ends.some((end) => shown(end.id)))
   const lit = focus && new Set([focus, ...layout.edges.flatMap((e) => (e.source === focus ? [e.target] : e.target === focus ? [e.source] : []))])
   const tick = (id) => onTicked(toggleStory(data.stories, ticked, id))
+  // Dragging the background pans: the canvas scrolls, so the drag moves its scroll position. Where the pointer went down is
+  // kept in scroll coordinates, and the pointer is captured so a drag that leaves the canvas still ends on release.
+  const grab = useRef(null)
+  const pan = (e) => grab.current && e.currentTarget.scrollTo(grab.current.x - e.clientX, grab.current.y - e.clientY)
 
   return (
     <section className="stories" aria-label="Stories you have read">
@@ -64,7 +68,17 @@ export default function Stories({ data, ticked, onTicked, fog, onFog }) {
           </button>
         ))}
       </div>
-      <div className="canvas">
+      <div
+        className="canvas"
+        onPointerDown={(e) => {
+          if (e.button !== 0 || e.pointerType === 'touch' || e.target.closest('.story')) return // touch pans natively
+          grab.current = { x: e.clientX + e.currentTarget.scrollLeft, y: e.clientY + e.currentTarget.scrollTop }
+          e.currentTarget.setPointerCapture(e.pointerId)
+        }}
+        onPointerMove={pan}
+        onPointerUp={() => (grab.current = null)}
+        onPointerCancel={() => (grab.current = null)}
+      >
         <svg
           width={layout.width}
           height={layout.height}

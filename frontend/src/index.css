@@ -326,6 +326,12 @@ button.link {
   flex: 1;
   min-height: 0;
   overflow: auto; /* wider than the screen scrolls sideways */
+  cursor: grab; /* or drag the background to pan */
+  user-select: none;
+}
+
+.canvas:active {
+  cursor: grabbing;
 }
 
 .canvas svg {
