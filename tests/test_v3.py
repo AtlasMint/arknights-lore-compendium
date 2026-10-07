@@ -1,5 +1,6 @@
 """Offline checks for v3: node types and summaries, the stories timeline and its spoiler tags, the in-game years seed,
-relationship labels and the new endpoints. No network and no Ollama: the wiki is fake and the model is stubbed.
+relationship labels, the new endpoints, and the progress file that followed. No network and no Ollama: the wiki is
+fake and the model is stubbed.
 
     python -m tests.test_v3
 """
@@ -16,6 +17,7 @@ from backend.scraper import cache, wiki_client
 from backend.vision import ollama_reader
 
 config.DB_PATH = Path(tempfile.mkdtemp()) / "test.db"
+config.PROGRESS_PATH = config.DB_PATH.with_name("progress.json")
 stories.YEARS = config.DB_PATH.with_name("years.json")
 stories.YEARS.write_text('{"Babel (event)": "1094"}')
 TODAY = datetime.date(2026, 10, 3)
@@ -148,6 +150,21 @@ def test_endpoints():
     assert client.post("/labels", json={"pairs": [["Talulah", "Ch'en"]] * 21}).status_code == 400
     body = client.get("/graph?seeds=Talulah,Ch'en&speaker=Talulah,Nobody").json
     assert "tags" in body and {n["id"] for n in body["nodes"] if n["seed"]} == {"Talulah", "Ch'en"}
+
+
+def test_progress():
+    """The progress file: none yet, then saved whole and read back; bad input and a broken file refused."""
+    client = app.test_client()
+    assert client.get("/progress").status_code == 404
+    good = {"ticked": ["Episode 01", "Babel (event)"], "overrides": {"Talulah": "hide"}, "fog": True}
+    assert client.put("/progress", json=good).json == good
+    assert client.get("/progress").json == good
+    assert "Babel (event)" in config.PROGRESS_PATH.read_text("utf-8") and not list(config.PROGRESS_PATH.parent.glob("*.tmp"))
+    for bad in [{"ticked": "Episode 01"}, {"overrides": {"Talulah": "maybe"}}, {"fog": "yes"}, ["Episode 01"]]:
+        assert client.put("/progress", json=bad).status_code == 400
+    assert client.get("/progress").json == good  # a refused save changes nothing
+    config.PROGRESS_PATH.write_text("not json", "utf-8")
+    assert client.get("/progress").status_code == 500
 
 
 if __name__ == "__main__":
