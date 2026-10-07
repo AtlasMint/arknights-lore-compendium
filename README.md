@@ -7,7 +7,7 @@ Drop in an Arknights story screenshot and get a map of the characters, factions 
 - **Screenshots in, keywords out:** a vision model on your own machine reads the speaker and the text, and you check the wiki terms it found before building the map. No API key. You can also type keywords.
 - **A lore map:** the pages around your keywords, ranked by relevance. Shape shows what each is (operator, character, faction, place, event), and colour shows the main factions.
 - **Details on click:** a short summary, the wiki link, and labelled connections ("Talulah is the half-sister of Ch'en").
-- **Spoiler-safe:** tick the stories you have read on a timeline of every story released on Global. Anything from later stories stays hidden.
+- **Spoiler-safe:** tick the stories you have read on a timeline of every story released on Global. Anything from later stories stays hidden, and an optional fog covers the timeline itself beyond the next story.
 - **Several screenshots, one map:** each screenshot adds to the same session.
 
 ## Tech stack
@@ -65,7 +65,7 @@ backend/    Python: wiki client and cache, term index and keyword matcher, graph
 frontend/   React app: the lore map and the stories timeline
 tests/      offline tests, and the labeled screenshot set with its scorer
 docs/       guides below, version plans, and archive/ of finished versions with their outcome notes
-data/       SQLite cache, created on first run, not committed
+data/       SQLite cache and progress.json, your ticks; created on first run, not committed
 ```
 
 ## Testing

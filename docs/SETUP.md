@@ -79,6 +79,7 @@ All in `backend/config.py`:
 | `REQUEST_DELAY` | Seconds between wiki requests |
 | `CACHE_TTL` | Seconds before a cached page is fetched again (7 days) |
 | `DB_PATH` | The SQLite file for pages, the term index, readings, labels and icons |
+| `PROGRESS_PATH` | The file that keeps the stories read, the corrections and the fog toggle |
 | `DEPTH`, `MAX_NODES` | Link hops out from the seeds, and the graph's size after pruning |
 | `RECIPROCAL_BONUS`, `SECTION_BONUS` | Edge weights for pages that link each other or share a section |
 | `SPEAKER_WEIGHT` | How much more a screenshot's speaker counts in the ranking |
@@ -87,6 +88,10 @@ All in `backend/config.py`:
 | `READER_URL`, `READER_MODEL` | Ollama, and the model that reads screenshots |
 | `LABEL_MODEL` | The model that labels links |
 | `MAX_UPLOAD_MB` | Largest screenshot the API takes |
+
+## Your progress
+
+The stories you have ticked, the hide/show corrections and the fog toggle live in one file, `data/progress.json`, written by the API the moment any of them changes and pretty-printed with one title per line. To back progress up or move it to another machine, copy the file; to start over, delete it. `data/` is ignored by git, so it never ends up in a commit. There are no accounts: everyone using one backend shares its file.
 
 ## Keeping data current
 
@@ -105,3 +110,4 @@ All in `backend/config.py`:
 - **macOS with the python.org installer:** if wiki requests fail with `CERTIFICATE_VERIFY_FAILED`, run `Install Certificates.command` from the Python folder in Applications.
 - **Port 5001** is used because macOS AirPlay holds 5000. To use another port, change it in the `flask` command and in `frontend/vite.config.js`.
 - **"Model not pulled"** in the status line or the map legend: run the `ollama pull` it names.
+- **"Couldn't load your progress"** in the status line: `data/progress.json` is unreadable or not a progress file. Nothing is saved while it is, so fix it or move it away, then reload.

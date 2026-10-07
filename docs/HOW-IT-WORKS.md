@@ -4,8 +4,6 @@ From a screenshot to a spoiler-safe lore map. [API](API.md) has the exact reques
 
 ## The pipeline
 
-Think of it like a military intelligence chain: a recon photo comes in, an analyst reads it, the findings get checked against a known order of battle, and a situation map gets drawn.
-
 ```
 Screenshot
    │
@@ -78,7 +76,7 @@ The shape says what a page is, from its categories, like unit symbols on a map l
 | star | Event, including every story |
 | cross | Other: races, lore concepts |
 
-Colour says which faction an operator or character belongs to. It comes from a category that is a faction page, or else the infobox's `affiliation`. Only three hues stay distinguishable when any two nodes can sit side by side, so the three largest factions in a map get one each and the rest share the neutral grey. Every node keeps its name label.
+Colour says which faction an operator or character belongs to. It comes from a category that is a faction page, or else the infobox's `affiliation`. Only three hues stay distinguishable when any two nodes can sit side by side, so the three largest factions in a map get one each and the rest share the neutral grey. Every node keeps its name label, and the layout keeps nodes at least 16 px apart.
 
 A node's summary is its page's first four sentences, cleaned of wikitext; an operator's comes from its `/Story` subpage.
 
@@ -99,7 +97,7 @@ Every story released on Global sits on one canvas, from the wiki's `Story/Moveme
 - **Release tab:** a time axis of Global start dates. Prologue to Episode 04 have no date on the wiki, so they take Global's launch day.
 - **In-game tab:** columns by in-universe year, from a hand-corrected table (`backend/story_years.json`), with an "Undated" column for the rest. With one Movement picked, the stories run in Score order, and stories of other Movements linked to them sit faded at the edge.
 
-Nodes in a band are packed into rows, so no two overlap. Clicking an Episode ticks it and every Episode before it; any other story ticks on its own.
+Nodes in a band are packed into rows, so no two overlap. The canvas scrolls, and dragging its background pans it. Clicking an Episode ticks it and every Episode before it; any other story ticks on its own.
 
 ## Spoiler control
 
@@ -118,7 +116,9 @@ What follows from the rule:
 - **Tick all** shows everything, untagged terms included.
 - **Corrections:** a term's **Hide this** and **Show anyway** fix a wrong tag.
 
-Ticks and corrections stay in the browser.
+**Fog of the Future** is an optional toggle on the stories canvas, for the titles themselves. With it on, only the stories you have read, the ones where a storyline starts (nothing to read before them) and the one step after either are drawn. The rest are covered, an edge into the fog fades out, and a covered story can't be ticked, so the way forward is one story at a time.
+
+Ticks, corrections and the fog toggle are saved by the API in one file, `data/progress.json`, the moment they change, so they follow the backend: any browser pointed at it sees the same progress, and copying the file is the backup. There are no accounts; one backend has one progress file.
 
 ## Sessions
 

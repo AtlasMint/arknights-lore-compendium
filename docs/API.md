@@ -83,3 +83,13 @@ Takes 1 to 20 pairs of lore page titles and returns a label for each, in the sam
 ```
 
 A label reads `from relation to`, from whichever end the wiki's evidence is about, so it may run the other way from the pair as sent. "is related to" means the wiki doesn't say. A title that isn't a lore page gets a 400, and a failed call to Ollama a 502.
+
+## `GET /progress` and `PUT /progress`
+
+The stories you have read, the hide/show corrections and the fog toggle, kept in one file by the API (`data/progress.json`, `PROGRESS_PATH` in `config.py`), so progress follows the backend rather than the browser:
+
+```json
+{"ticked": ["Prologue", "Episode 01"], "overrides": {"Talulah": "hide"}, "fog": false}
+```
+
+`GET` returns it: a 404 when nothing has been saved yet, a 500 when the file can't be read or isn't this shape (the frontend then saves nothing, so the file is never overwritten). `PUT` with the same object saves it, whole or not at all, and echoes it back; anything else gets a 400. Titles are up to 200 characters, `overrides` values are `hide` or `show`, and `fog` is a boolean.
