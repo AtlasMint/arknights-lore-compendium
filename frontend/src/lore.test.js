@@ -1,6 +1,6 @@
-// Checks of the spoiler rule, the Episode tick chain and the stories layout. Run with: bun test
+// Checks of the spoiler rule, the Episode tick chain, the fog and the stories layout. Run with: bun test
 import { expect, test } from 'bun:test'
-import { BANDS, layoutStories, learnedIn, toggleStory, visibility, visibleGraph } from './lore.js'
+import { BANDS, GAP, layoutStories, learnedIn, toggleStory, uncovered, visibility, visibleGraph } from './lore.js'
 
 const episodes = ['Prologue', 'Episode 01', 'Episode 02', 'Episode 03'].map((id, order) => ({ id, band: 'main', order }))
 const stories = [...episodes, { id: 'Vigilo', band: 'collection', order: 9 }]
@@ -51,7 +51,24 @@ test('a label shows with the first ticked story both ends share', () => {
   expect(learnedIn({ stories: [] }, new Set(), true)).toEqual({ story: null })
 })
 
-test('no two story nodes overlap, on either tab, with or without a Movement picked', () => {
+test('the fog leaves only the stories read, where storylines start, and the one step after either', () => {
+  // Prologue -> Episode 01 -> Episode 02 -> Episode 03; a side story follows Episode 02; Vigilo stands alone.
+  const data = {
+    stories: [...stories, { id: 'Side', band: 'side', order: 5 }],
+    acts: [],
+    edges: [
+      { source: 'Prologue', target: 'Episode 01', kind: 'sequel' },
+      { source: 'Episode 01', target: 'Episode 02', kind: 'sequel' },
+      { source: 'Episode 02', target: 'Episode 03', kind: 'sequel' },
+      { source: 'Episode 02', target: 'Side', kind: 'related' },
+    ],
+  }
+  expect([...uncovered(data, new Set())].sort()).toEqual(['Episode 01', 'Prologue', 'Vigilo'])
+  const read = toggleStory(data.stories, new Set(), 'Episode 02')
+  expect([...uncovered(data, read)].sort()).toEqual(['Episode 01', 'Episode 02', 'Episode 03', 'Prologue', 'Side', 'Vigilo'])
+})
+
+test('no two story nodes overlap or sit closer than the gap, on either tab, with or without a Movement picked', () => {
   // Thirty stories crowded into two years, some sharing a day, across every band and two Movements.
   const many = Array.from({ length: 30 }, (_, i) => ({
     id: `S${i}`,
@@ -65,13 +82,14 @@ test('no two story nodes overlap, on either tab, with or without a Movement pick
   const data = { stories: many, acts: [], edges: [{ source: 'S0', target: 'S1', kind: 'related' }] }
   for (const tab of ['release', 'ingame']) {
     for (const movement of ['', 'MS']) {
-      const { items } = layoutStories(data, { tab, movement, measure: (text) => text.length * 6 })
+      const { items, edges } = layoutStories(data, { tab, movement, measure: (text) => text.length * 6 })
       for (const a of items) {
         for (const b of items) {
-          const apart = a === b || a.y !== b.y || a.x + a.w <= b.x || b.x + b.w <= a.x
+          const apart = a === b || a.y !== b.y || a.x + a.w + GAP <= b.x || b.x + b.w + GAP <= a.x
           expect(apart).toBe(true)
         }
       }
+      expect(edges.map((e) => e.ends.map((end) => end.id).sort())).toEqual([['S0', 'S1']]) // each end knows its story
       if (movement) expect(items.filter((s) => s.faded).map((s) => s.id)).toEqual(['S1'])
     }
   }
