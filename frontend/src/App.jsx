@@ -20,23 +20,15 @@ const SHAPES = Object.fromEntries(TYPES)
 // the rest share the neutral. The node labels and the detail panel name every faction.
 const FACTION_COLORS = 3
 
-// A value this browser kept, or the fallback when there is none or storage is blocked.
-function useStored(key, fallback) {
-  const [value, setValue] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(key)) ?? fallback
-    } catch {
-      return fallback
-    }
-  })
-  useEffect(() => {
-    try {
-      localStorage.setItem(key, JSON.stringify(value))
-    } catch {
-      // private window or blocked storage: progress lasts until the tab closes
-    }
-  }, [key, value])
-  return [value, setValue]
+const EMPTY = { ticked: [], overrides: {}, fog: false }
+
+// The progress an earlier version kept in this browser, carried over the first time the API has no file.
+function local() {
+  try {
+    return Object.fromEntries(Object.entries(EMPTY).map(([key, fallback]) => [key, JSON.parse(localStorage.getItem(key)) ?? fallback]))
+  } catch {
+    return EMPTY
+  }
 }
 
 const linkKey = (link) => `${link.source}\n${link.target}`
@@ -56,9 +48,8 @@ export default function App() {
   const [status, setStatus] = useState('')
   const [view, setView] = useState('map')
   const [stories, setStories] = useState(null)
-  const [tickedList, setTickedList] = useStored('ticked', [])
-  const [overrides, setOverrides] = useStored('overrides', {}) // term -> "hide" | "show", correcting the tags
-  const [fog, setFog] = useStored('fog', false) // the stories canvas covers what hasn't been reached yet
+  const [progress, setProgress] = useState(null) // {ticked, overrides: term -> "hide" | "show", fog}, from the API's file
+  const saved = useRef() // the progress as last loaded or saved, so only a change is written
   const [types, setTypes] = useState(new Set(TYPES.map(([type]) => type)))
   const [labels, setLabels] = useState({}) // "source\ntarget" -> {from, relation, to}
   const [labelError, setLabelError] = useState('')
@@ -80,7 +71,37 @@ export default function App() {
       .catch(() => setStatus('Could not load the stories, so only your keywords show on the map.'))
   }, [])
 
-  const ticked = useMemo(() => new Set(tickedList), [tickedList])
+  // Progress is a file the API keeps (data/progress.json), so it follows the backend, not the browser. It is loaded
+  // once and saved on every change after that. Until it has loaded nothing is saved, so a broken file is never
+  // overwritten; with no file yet, whatever this browser kept before there was one is carried over.
+  useEffect(() => {
+    fetch('/progress')
+      .then(async (response) => {
+        if (response.status === 404) return local() // the first save makes the file
+        const body = await response.json()
+        if (!response.ok) throw new Error(body.error)
+        saved.current = JSON.stringify(body)
+        return body
+      })
+      .then(setProgress)
+      .catch((error) => setStatus(`Couldn't load your progress, so nothing will be saved: ${error.message}`))
+  }, [])
+  useEffect(() => {
+    const body = progress && JSON.stringify(progress)
+    if (!body || body === saved.current) return
+    // ponytail: no queue, so two saves in flight could land out of order; fine at the speed of clicks
+    fetch('/progress', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body })
+      .then(async (response) => {
+        if (!response.ok) throw new Error((await response.json().catch(() => null))?.error ?? `status ${response.status}`)
+        saved.current = body
+      })
+      .catch((error) => setStatus(`Progress not saved: ${error.message}`))
+  }, [progress])
+
+  const ticked = useMemo(() => new Set(progress?.ticked), [progress])
+  const { overrides, fog } = progress ?? EMPTY
+  const update = (patch) => setProgress((p) => p && { ...p, ...patch }) // nothing to change until it has loaded
+  const setOverrides = (next) => update({ overrides: next })
   const everything = !!stories && stories.stories.every((s) => ticked.has(s.id))
   const seeds = useMemo(() => new Set(graph?.nodes.filter((n) => n.seed).map((n) => n.id)), [graph])
   const isVisible = useMemo(
@@ -283,7 +304,7 @@ export default function App() {
         </form>
       </header>
       {view === 'stories' && stories && (
-        <Stories data={stories} ticked={ticked} onTicked={(next) => setTickedList([...next])} fog={fog} onFog={setFog} />
+        <Stories data={stories} ticked={ticked} onTicked={(next) => update({ ticked: [...next] })} fog={fog} onFog={(on) => update({ fog: on })} />
       )}
       {view === 'map' && visible && (
         <main className="map">
