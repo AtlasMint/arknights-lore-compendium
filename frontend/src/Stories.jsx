@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { layoutStories, toggleStory } from './lore.js'
+import { layoutStories, toggleStory, uncovered } from './lore.js'
 
 let context
 // A label's width in pixels, in the canvas's own font.
@@ -12,12 +12,18 @@ function measure(text) {
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
 
 // Every story released on Global, on one canvas: click to tick what you have read. Ticks are what the lore map shows.
-export default function Stories({ data, ticked, onTicked }) {
+// With the fog on, only read stories, storyline starts and the one step after either are drawn.
+export default function Stories({ data, ticked, onTicked, fog, onFog }) {
   const [tab, setTab] = useState('release')
   const [movement, setMovement] = useState('')
   const [focus, setFocus] = useState(null)
   const layout = useMemo(() => layoutStories(data, { tab, movement, measure }), [data, tab, movement])
   const names = useMemo(() => Object.fromEntries(data.movements.map((m) => [m.code, m.name])), [data])
+  const clear = useMemo(() => (fog ? uncovered(data, ticked) : null), [fog, data, ticked]) // null draws them all
+  const shown = (id) => !clear || clear.has(id)
+  const items = layout.items.filter((s) => shown(s.id))
+  // An edge with one end in the fog fades out towards it; one with both ends there isn't drawn.
+  const edges = layout.edges.filter((e) => e.ends.some((end) => shown(end.id)))
   const lit = focus && new Set([focus, ...layout.edges.flatMap((e) => (e.source === focus ? [e.target] : e.target === focus ? [e.source] : []))])
   const tick = (id) => onTicked(toggleStory(data.stories, ticked, id))
 
@@ -39,6 +45,13 @@ export default function Stories({ data, ticked, onTicked }) {
         </span>
         <button onClick={() => onTicked(new Set(data.stories.map((s) => s.id)))}>Tick all (spoilers)</button>
         <button onClick={() => onTicked(new Set())}>Untick all</button>
+        <button
+          aria-pressed={fog}
+          title="Cover all future stories not yet encountered. Only what you have read, the start of each storyline and the one step after them stay on the canvas."
+          onClick={() => onFog(!fog)}
+        >
+          Fog of the Future
+        </button>
       </div>
       <div className="controls movements" role="group" aria-label="Movement">
         <button aria-pressed={!movement} onClick={() => setMovement('')}>
@@ -52,7 +65,25 @@ export default function Stories({ data, ticked, onTicked }) {
         ))}
       </div>
       <div className="canvas">
-        <svg width={layout.width} height={layout.height} role="group" aria-label={`${layout.items.length} stories`}>
+        <svg
+          width={layout.width}
+          height={layout.height}
+          role="group"
+          aria-label={clear ? `${items.length} of ${layout.items.length} stories, the rest covered by the fog` : `${layout.items.length} stories`}
+        >
+          {clear && (
+            <defs>
+              {edges.map((e, i) => {
+                const [near, far] = shown(e.ends[0].id) ? e.ends : [e.ends[1], e.ends[0]]
+                return shown(far.id) ? null : (
+                  <linearGradient key={i} id={`fog-${i}`} className="fog" gradientUnits="userSpaceOnUse" x1={near.x} y1={near.y} x2={far.x} y2={far.y}>
+                    <stop offset="0" stopOpacity="0.7" />
+                    <stop offset="1" stopOpacity="0" />
+                  </linearGradient>
+                )
+              })}
+            </defs>
+          )}
           {layout.ticks.map((t) => (
             <g key={t.label} className="tick">
               <line x1={t.x} x2={t.x} y1={14} y2={layout.height} />
@@ -69,19 +100,22 @@ export default function Stories({ data, ticked, onTicked }) {
               </text>
             </g>
           ))}
-          {layout.acts.map((a) => (
-            <text key={a.name} className="act" x={a.x} y={a.y}>
-              {a.name}
-            </text>
-          ))}
-          {layout.edges.map((e) => (
+          {layout.acts
+            .filter((a) => shown(a.first))
+            .map((a) => (
+              <text key={a.name} className="act" x={a.x} y={a.y}>
+                {a.name}
+              </text>
+            ))}
+          {edges.map((e, i) => (
             <path
               key={`${e.source}\n${e.target}`}
               className={`edge ${e.kind}${focus ? (e.source === focus || e.target === focus ? ' lit' : ' dim') : ''}`}
+              style={e.ends.every((end) => shown(end.id)) ? undefined : { stroke: `url(#fog-${i})` }}
               d={e.d}
             />
           ))}
-          {layout.items.map((s) => (
+          {items.map((s) => (
             <g
               key={s.id}
               className={`story${ticked.has(s.id) ? ' ticked' : ''}${s.faded ? ' faded' : ''}${lit && !lit.has(s.id) ? ' dim' : ''}`}

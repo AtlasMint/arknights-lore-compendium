@@ -98,7 +98,7 @@ header > * {
 }
 
 [role='tab'][aria-selected='true'],
-.movements [aria-pressed='true'] {
+.controls [aria-pressed='true'] {
   font-weight: 600;
   outline: 2px solid CanvasText;
 }
@@ -358,6 +358,10 @@ button.link {
   fill: none;
   stroke: var(--line);
   stroke-width: 1.5px;
+}
+
+.fog stop {
+  stop-color: var(--muted); /* an edge into the fog fades from the story you can see towards the covered one */
 }
 
 .edge.related {

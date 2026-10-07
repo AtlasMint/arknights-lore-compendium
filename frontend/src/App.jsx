@@ -58,6 +58,7 @@ export default function App() {
   const [stories, setStories] = useState(null)
   const [tickedList, setTickedList] = useStored('ticked', [])
   const [overrides, setOverrides] = useStored('overrides', {}) // term -> "hide" | "show", correcting the tags
+  const [fog, setFog] = useStored('fog', false) // the stories canvas covers what hasn't been reached yet
   const [types, setTypes] = useState(new Set(TYPES.map(([type]) => type)))
   const [labels, setLabels] = useState({}) // "source\ntarget" -> {from, relation, to}
   const [labelError, setLabelError] = useState('')
@@ -282,7 +283,7 @@ export default function App() {
         </form>
       </header>
       {view === 'stories' && stories && (
-        <Stories data={stories} ticked={ticked} onTicked={(next) => setTickedList([...next])} />
+        <Stories data={stories} ticked={ticked} onTicked={(next) => setTickedList([...next])} fog={fog} onFog={setFog} />
       )}
       {view === 'map' && visible && (
         <main className="map">

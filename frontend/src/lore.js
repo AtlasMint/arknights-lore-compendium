@@ -28,6 +28,21 @@ export function learnedIn(link, ticked, everything) {
   return everything ? { story: link.stories[0] ?? null } : null
 }
 
+// Fog of the Future. Only the stories read, the ones where a storyline starts (nothing to read before them) and the
+// immediate neighbours of either are on the canvas, so the player sees one step ahead and no further. The stories left
+// uncovered, as a set of ids.
+export function uncovered(data, ticked) {
+  const starts = new Set(data.stories.map((s) => s.id))
+  data.edges.forEach((e) => starts.delete(e.target)) // edges run in reading order, so a target has something before it
+  const known = new Set([...ticked, ...starts])
+  const shown = new Set(known)
+  for (const e of data.edges) {
+    if (known.has(e.source)) shown.add(e.target)
+    if (known.has(e.target)) shown.add(e.source)
+  }
+  return shown
+}
+
 // Clicking an Episode ticks it and every Episode before it; clicking a ticked one unticks it and every one after.
 // Any other story ticks on its own.
 export function toggleStory(stories, ticked, id) {
@@ -133,18 +148,22 @@ export function layoutStories(data, { tab, movement, measure }) {
   }
   const edges = data.edges
     .filter((e) => at.has(e.source) && at.has(e.target))
-    .map((e) => {
-      const [a, b] = [at.get(e.source), at.get(e.target)].sort((p, q) => p.x - q.x)
-      if (a.x + a.w <= b.x) {
-        // side by side: from the right end of one to the left end of the other
-        const [x1, y1, x2, y2] = [a.x + a.w, a.y + NODE / 2, b.x, b.y + NODE / 2]
-        return { ...e, d: `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}` }
-      }
-      // stacked in one column: from the bottom of the upper to the top of the lower
-      const [p, q] = [a, b].sort((m, n) => m.y - n.y)
-      const [x1, y1, x2, y2] = [p.x + p.w / 2, p.y + NODE, q.x + q.w / 2, q.y]
-      return { ...e, d: `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}` }
-    })
+    .map((e) => ({ ...e, ...route(...[at.get(e.source), at.get(e.target)].sort((p, q) => p.x - q.x)) }))
   const width = d3.max(items, (s) => s.x + s.w) + PAD
   return { width: Math.max(width, ...ticks.map((t) => t.x + 60)), height: y, items, bands, ticks, acts, edges, node: NODE }
+}
+
+// The path of an edge between two placed nodes, `a` the left one. Side by side, it runs from the right end of `a` to the
+// left end of `b`; stacked in one column, from the bottom of the upper to the top of the lower. `ends` says whose node
+// each end of the path is, so a fade can run from one towards the other.
+function route(a, b) {
+  const side = a.x + a.w <= b.x
+  const [p, q] = side ? [a, b] : [a, b].sort((m, n) => m.y - n.y)
+  const [x1, y1, x2, y2] = side
+    ? [p.x + p.w, p.y + NODE / 2, q.x, q.y + NODE / 2]
+    : [p.x + p.w / 2, p.y + NODE, q.x + q.w / 2, q.y]
+  const d = side
+    ? `M${x1},${y1} C${(x1 + x2) / 2},${y1} ${(x1 + x2) / 2},${y2} ${x2},${y2}`
+    : `M${x1},${y1} C${x1},${(y1 + y2) / 2} ${x2},${(y1 + y2) / 2} ${x2},${y2}`
+  return { d, ends: [{ id: p.id, x: x1, y: y1 }, { id: q.id, x: x2, y: y2 }] }
 }
