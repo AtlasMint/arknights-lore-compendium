@@ -6,7 +6,7 @@ Drop in an Arknights story screenshot and get a map of the characters, factions 
 
 - **Screenshots in, keywords out:** a vision model on your own machine reads the speaker and the text, and you check the wiki terms it found before building the map. No API key. You can also type keywords.
 - **A lore map:** the pages around your keywords, ranked by relevance. Shape shows what each is (operator, character, faction, place, event), and colour shows the main factions.
-- **Details on click:** a short summary, the wiki link, and labelled connections ("Talulah is the half-sister of Ch'en").
+- **Details on click:** a summary that grows with the stories you have read, the wiki link, and labelled connections ("Talulah is the half-sister of Ch'en").
 - **Spoiler-safe:** tick the stories you have read on a timeline of every story released on Global. Anything from later stories stays hidden, and an optional fog covers the timeline itself beyond the next story.
 - **Several screenshots, one map:** each screenshot adds to the same session.
 
@@ -37,7 +37,7 @@ ollama pull qwen3.5:2b    # reads screenshots
 ollama pull qwen3.5:4b    # labels connections
 ```
 
-Start the API, then the frontend in a second terminal:
+Start both with `./scripts/start-app.sh` (Ctrl+C stops both), or by hand — the API, then the frontend in a second terminal:
 
 ```bash
 python -m flask --app backend.app run --port 5001

@@ -17,9 +17,9 @@ The Python tests run against a small fake wiki, and `test_v1` and `test_v3` stub
 | `test_v0` | Term lookups, wikitext parsing, edge weights and pruning |
 | `test_v1` | Keyword matching, the reader's request and reply, the reading cache, `POST /analyze` |
 | `test_v2` | The speaker's extra weight in the ranking |
-| `test_v3` | Node types, summaries, the stories timeline and its tags, the years seed, labels, the new endpoints |
+| `test_v3` | Node types, summaries and the story each sentence came from, the stories timeline and its tags, the years seed, labels, the new endpoints, the progress file |
 
-`bun test` (`frontend/src/lore.test.js`) checks the spoiler rule, the Episode tick chain, and that no two story nodes overlap on either tab.
+`bun test` (`frontend/src/lore.test.js`) checks the spoiler rule and the summary rule, the Episode tick chain, the fog, the map's box collision, and that no two story nodes sit closer than the gap on either tab.
 
 ## The screenshot set
 

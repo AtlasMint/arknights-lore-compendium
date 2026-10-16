@@ -9,7 +9,8 @@ The Flask API the frontend calls, served by `python -m flask --app backend.app r
 ```json
 {"nodes": [{"id": "Amiya", "seed": true, "score": 0.144, "categories": ["5-star", "Amiya", "Caster", "Core Caster", "Rhodes Island"],
             "type": "Operator", "faction": "Rhodes Island",
-            "summary": [{"text": "Amiya is a Rim Billitonian Cautus who lost her parents ...", "terms": ["Amiya", "Cautus", "Rim Billiton"]}, ...]}, ...],
+            "summary": [{"text": "The public face of Rhodes Island and its top executive.", "terms": ["Rhodes Island"], "story": null},
+                        {"text": "Amiya is a Rim Billitonian Cautus who lost her parents ...", "terms": ["Amiya", "Cautus", "Rim Billiton"], "story": "Babel (event)"}, ...]}, ...],
  "links": [{"source": "Kal'tsit", "target": "Amiya", "weight": 59, "stories": ["Episode 02", "Episode 04", ...]}, ...],
  "tags": {"Amiya": ["Prologue", "Episode 01", ...], "Cautus": [...], ...}}
 ```
@@ -22,11 +23,11 @@ In the reply:
 
 - `type` is one of Operator, Character, Faction, Location, Event and Other.
 - `faction` is set for operators, characters and factions themselves.
-- `summary` is the page's first four sentences, each with the lore pages it names.
+- `summary` is an operator's in-game Profile, then the page's first four sentences, then one sentence per story the page has a section for, in Score order. Each carries the lore pages it names and `story`: the story that told it (a citation's stage, or the section's heading), or null.
 - `tags` maps every node, and every term a summary names, to the released stories it appears in, in Score order.
 - A link's `stories` are the ones both ends share.
 
-The frontend hides whatever has no ticked story.
+The frontend hides whatever has no ticked story, and a summary sentence until its `story` is ticked.
 
 ## `POST /analyze`
 

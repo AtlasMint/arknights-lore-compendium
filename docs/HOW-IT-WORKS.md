@@ -76,9 +76,15 @@ The shape says what a page is, from its categories, like unit symbols on a map l
 | star | Event, including every story |
 | cross | Other: races, lore concepts |
 
-Colour says which faction an operator or character belongs to. It comes from a category that is a faction page, or else the infobox's `affiliation`. Only three hues stay distinguishable when any two nodes can sit side by side, so the three largest factions in a map get one each and the rest share the neutral grey. Every node keeps its name label, and the layout keeps nodes at least 16 px apart.
+Colour says which faction an operator or character belongs to. It comes from a category that is a faction page, or else the infobox's `affiliation`. Only three hues stay distinguishable when any two nodes can sit side by side, so the three largest factions in a map get one each and the rest share the neutral grey. Every node keeps its name label, and the layout keeps each node and its name 20 px clear of every other. The layout is settled before it is drawn, and the map runs into it in under a second; it spreads sideways before it spreads down, since the canvas is wide. Selecting a node drifts its links out to twice their length over three seconds, so the labels on them can be read, and pans the view to put the node in the middle; deselecting runs the layout back to where it was.
 
-A node's summary is its page's first four sentences, cleaned of wikitext; an operator's comes from its `/Story` subpage.
+A node's summary is assembled from three places on its pages, each sentence knowing which story told it:
+
+1. An operator's in-game **Profile**, from the `{{Archive}}` templates of its `/File` subpage: the game's own text, written at the operator's release, so it spoils nothing.
+2. The page's **lead**, its first four sentences outside any story's section. The wiki cites the stage that establishes a claim (`[[BB-4/Story#After operation|BB-4 After]]`), and the stage's page names its story, so a cited sentence is tagged with that story. The citation that closes a run of sentences covers them all, the usual wiki convention. A citation to a book or an operator record gives no story.
+3. One sentence per **story-headed section**: character pages keep a Plot or Story section with one subsection per story, so a sentence under "Episode 08" is Episode 08's. Headings that aren't a story (operator records, Integrated Strategies) are skipped, and the matched headings double as the character's list of appearances.
+
+Sentences are cleaned of wikitext. Stage pages are read once per stage prefix (BB-4 and BB-7 share one) and cached like any page.
 
 ## Relationship labels
 
@@ -110,7 +116,7 @@ You tick the stories you have read; the app never guesses where you are. A term 
 What follows from the rule:
 
 - **Hidden terms** leave the map, and so does a node they leave without links.
-- **Summaries** drop any sentence that names a hidden term.
+- **Summaries** show a sentence once the story that told it is ticked, shown as "learned in" that story; a sentence from no story in particular shows when every term it names is visible. The summary grows as you tick.
 - **Labels** show only once you have read a story both ends appear in, as "learned in" that story.
 - **Your own keywords always show**, since you just saw them.
 - **Tick all** shows everything, untagged terms included.
@@ -122,4 +128,4 @@ Ticks, corrections and the fog toggle are saved by the API in one file, `data/pr
 
 ## Sessions
 
-Each screenshot adds its keywords to the session's. A keyword shows the number of the screenshot that brought it, and **New session** clears the list. The session lasts as long as the tab.
+Each screenshot adds its keywords to the session's. A keyword shows the number of the screenshot that brought it. **Clear graph** empties the map and keeps the keywords; **New session** clears both. The session lasts as long as the tab.
