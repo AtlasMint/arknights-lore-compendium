@@ -45,18 +45,34 @@ def describe(graph):
     stories it appears in, in Score order. An unknown story is left out, so a term only in unreleased stories is untagged.
     """
     texts = page_texts([n["id"] for n in graph["nodes"]])
+    # The summary: an operator's in-game Profile, then the lead (the sentences under no story's heading, with the story
+    # each one's citation names), then the first sentence under each story's own heading, in Score order.
+    found = {}  # title -> [(sentence, targets, story or citation to resolve)]
+    for node in graph["nodes"]:
+        title = node["id"]
+        profile = [(s, t, None) for text in texts[title] for name, said in wikitext.archive(text) if name == "Profile" for s, t in said]
+        lead, told = [], {}  # told: story -> the first sentence under its heading
+        for heading, sentence, targets, citation in (row for text in texts[title] for row in wikitext.prose(text)):
+            if story := heading and stories.story_named(heading):
+                told.setdefault(story, (sentence, targets, story))
+            elif len(lead) < SUMMARY_SENTENCES:
+                lead.append((sentence, targets, citation))
+        found[title] = (profile, lead, [told[story] for story in sorted(told, key=stories.order)])
+    # Only the leads' citations need a stage page, in one batch: a page's other citations are hundreds on Amiya's.
+    cited = stories.stage_stories({c for _, lead, _ in found.values() for _, _, c in lead if c})
     tags = {}
     for node in graph["nodes"]:
         title = node["id"]
         lines = [line for text in texts[title] for line in wikitext.infobox_lines(text)]
         appearances = {index.lookup(t) for field, line, targets in lines
                        if field == "appearance" and not DISGUISED.search(line) for t in targets}
-        tags[title] = stories.tags(title, appearances - {None})
         node["type"] = terms.node_type(node["categories"])
         node["faction"] = title if node["type"] == "Faction" else (
             faction(node["categories"], lines) if node["type"] in ("Operator", "Character") else None)
-        found = next((s for s in map(wikitext.sentences, texts[title]) if s), [])[:SUMMARY_SENTENCES]
-        node["summary"] = [{"text": text, "terms": sorted(named(text, targets))} for text, targets in found]
+        profile, lead, told = found[title]
+        sentences = profile + [(s, t, cited.get(c)) for s, t, c in lead] + told
+        node["summary"] = [{"text": text, "terms": sorted(named(text, targets)), "story": story} for text, targets, story in sentences]
+        tags[title] = stories.tags(title, (appearances - {None}) | {story for _, _, story in told})
         for sentence in node["summary"]:
             for term in sentence["terms"]:
                 tags.setdefault(term, stories.tags(term))

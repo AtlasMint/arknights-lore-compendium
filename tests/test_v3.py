@@ -116,8 +116,8 @@ def test_describe():
     assert nodes["Talulah"]["type"] == "Character" and nodes["Talulah"]["faction"] == "Reunion"  # from the infobox
     assert nodes["Ch'en"]["faction"] == "Lungmen Guard Department" and nodes["Reunion"]["faction"] == "Reunion"
     assert nodes["Lungmen"]["type"] == "Faction" and nodes["Lungmen"]["faction"] == "Lungmen"  # a faction is its own
-    assert nodes["Talulah"]["summary"][1] == {"text": "She leads Reunion.", "terms": ["Reunion"]}
-    assert {"text": "Later she met Amiya.", "terms": ["Amiya"]} in nodes["Talulah"]["summary"]  # named without a link
+    assert nodes["Talulah"]["summary"][1] == {"text": "She leads Reunion.", "terms": ["Reunion"], "story": None}
+    assert {"text": "Later she met Amiya.", "terms": ["Amiya"], "story": None} in nodes["Talulah"]["summary"]  # named without a link
     assert graph["tags"]["Talulah"] == ["Episode 01", "Episode 02", "Babel (event)"]  # not Crossy, under another name
     assert graph["tags"]["Amiya"] == ["Episode 01", "Babel (event)"]  # named in a summary, not a node
     link = next(l for l in graph["links"] if {l["source"], l["target"]} == {"Talulah", "Lungmen"})
