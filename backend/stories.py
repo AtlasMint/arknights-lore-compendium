@@ -155,6 +155,48 @@ def _tags():
     return tags
 
 
+STAGE = re.compile(r"([A-Z0-9]+(?:-[A-Z]+)*-\d+)(?:[/#]|$)")  # "BB-4/Story#After operation" -> BB-4; WR-ST-1 too
+_prefixes = {}  # stage prefix -> story: BB -> Babel (event). ponytail: kept for the process, like _load
+
+
+def stage_stories(targets):
+    """{citation link target: the story its stage is part of} for the targets that name a stage, released or not.
+    A stage's page says which story it belongs to: `episode = 08`, `intermezzo = Babel (event)`, `sidestory = Near
+    Light`. One page per stage prefix is read and the answer kept, since BB-4 and BB-7 share it."""
+    codes = {t: m.group(1) for t in targets if (m := STAGE.match(t))}
+    prefix = lambda code: code.split("-")[0]
+    new = {prefix(c): c for c in codes.values() if prefix(c) not in _prefixes}
+    pages = cache.get_pages(list(new.values()))
+    known = {s["id"] for s in _load()["stories"]}
+    named = {s["name"]: s["id"] for s in _load()["stories"]}
+    for p, code in new.items():
+        info = next((t for t in mwparserfromhell.parse(pages.get(code, "")).filter_templates()
+                     if str(t.name).strip() == "Operation info"), None)
+        story = None
+        for param in info.params if info is not None else []:
+            name, value = str(param.name).strip(), param.value.strip_code().strip()
+            if name == "episode" and value.isdigit():
+                story = f"Episode {int(value):02d}"
+            elif name not in ("code", "name", "prev", "next", "next2", "part", "desc"):
+                story = named.get(value) or index.lookup(value)
+            if story in known:
+                break
+            story = None
+        _prefixes[p] = story
+    return {t: _prefixes[prefix(c)] for t, c in codes.items() if _prefixes[prefix(c)]}
+
+
+def story_named(heading):
+    """The story a page heading names, by page title or Movement name ("Episode 7" is Episode 07), else None."""
+    names = {s[k].lower(): s["id"] for s in _load()["stories"] for k in ("id", "name")}
+    return names.get(re.sub(r"^episode (\d)$", r"episode 0\1", heading.strip().lower()))
+
+
+def order(story):
+    """A story's place in the Score, released or not."""
+    return next(s["order"] for s in _load()["stories"] if s["id"] == story)
+
+
 def tags(title, appearances=()):
     """Released stories that `title` appears in, in Score order. `appearances` adds the stories a character page's
     infobox lists, already resolved to titles."""
