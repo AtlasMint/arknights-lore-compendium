@@ -1,10 +1,11 @@
 import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GAP, learnedIn, readable, visibility, visibleGraph } from './lore.js'
+import { GAP, forceBoxes, learnedIn, measure, readable, visibility, visibleGraph } from './lore.js'
 import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
 const LABEL_BATCH = 10 // links per /labels call; about twenty seconds of the model's time when none is cached
+const NAME_FONT = '10px system-ui, sans-serif' // .node text in index.css
 const UNSURE = 'is related to' // the label when the wiki doesn't say, backend/graph/labels.py
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
 const TYPES = [
@@ -485,6 +486,12 @@ function Graph({ data, colors, selected, onSelect, label }) {
     const nodes = data.nodes.map((d) => ({ ...d, ...positions.current.get(d.id) })) // the simulation mutates these
     const links = data.links.map((d) => ({ ...d }))
     const radius = d3.scaleSqrt().domain(d3.extent(nodes, (d) => d.score)).range([4, 18])
+    // Each node's box for the layout: its shape (a star or diamond of area πr² reaches 1.7r from its centre), its name
+    // to the right, and half the gap all round.
+    nodes.forEach((d) => {
+      const reach = Math.max(1.7 * radius(d.score), 7)
+      d.box = { x0: -reach - GAP / 2, x1: radius(d.score) + 3 + measure(d.id, NAME_FONT) + GAP / 2, y0: -reach - GAP / 2, y1: reach + GAP / 2 }
+    })
 
     const root = svg.append('g')
     svg.call(d3.zoom().scaleExtent([0.2, 8]).on('zoom', (event) => root.attr('transform', event.transform)))
@@ -525,7 +532,7 @@ function Graph({ data, colors, selected, onSelect, label }) {
       .forceSimulation(nodes)
       .force('link', d3.forceLink(links).id((d) => d.id).distance(70))
       .force('charge', d3.forceManyBody().strength(-160))
-      .force('collide', d3.forceCollide((d) => 1.7 * radius(d.score) + GAP / 2)) // a star or diamond of area πr² reaches 1.7r from its centre
+      .force('collide', forceBoxes((d) => d.box)) // each node's shape and name, with half the gap all round
       .force('center', d3.forceCenter(width / 2, height / 2))
       .on('tick', () => {
         link

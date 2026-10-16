@@ -1,13 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { layoutStories, toggleStory, uncovered } from './lore.js'
-
-let context
-// A label's width in pixels, in the canvas's own font.
-function measure(text) {
-  context ??= document.createElement('canvas').getContext('2d')
-  context.font = '12px system-ui, sans-serif'
-  return context.measureText(text).width
-}
+import { layoutStories, measure, toggleStory, uncovered } from './lore.js'
 
 const DATE = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeZone: 'UTC' })
 

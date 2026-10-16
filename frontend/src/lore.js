@@ -17,6 +17,40 @@ export function readable(summary, { ticked, everything, isVisible }) {
   return summary.filter((s) => (s.story ? everything || ticked.has(s.story) : s.terms.every(isVisible)))
 }
 
+let context
+// A label's width in pixels, in the given font.
+export function measure(text, font = '12px system-ui, sans-serif') {
+  context ??= document.createElement('canvas').getContext('2d')
+  context.font = font
+  return context.measureText(text).width
+}
+
+// Keeps the nodes' boxes (the shape and its name) from overlapping: d3's collide force, for boxes instead of circles.
+// `box(node)` gives the box's edges relative to the node's centre. Each tick, every overlapping pair is pushed apart
+// along the axis that needs the smaller move, like forceCollide's strength on the overlap.
+// ponytail: every pair is checked, O(n²); fine for the 150 nodes a map holds, a quadtree if that ever grows
+export function forceBoxes(box, strength = 0.5) {
+  let nodes
+  const force = () => {
+    for (let i = 0; i < nodes.length; i++) {
+      for (let j = i + 1; j < nodes.length; j++) {
+        const [a, b] = [nodes[i], nodes[j]]
+        const [A, B] = [box(a), box(b)]
+        const dx = Math.min(a.x + A.x1 - (b.x + B.x0), b.x + B.x1 - (a.x + A.x0)) // how far the boxes overlap along x
+        const dy = Math.min(a.y + A.y1 - (b.y + B.y0), b.y + B.y1 - (a.y + A.y0))
+        if (dx <= 0 || dy <= 0) continue
+        const axis = dx < dy ? 'x' : 'y'
+        const centre = (n, box) => (axis === 'x' ? n.x + (box.x0 + box.x1) / 2 : n.y + (box.y0 + box.y1) / 2)
+        const push = (((axis === 'x' ? dx : dy) * strength) / 2) * (centre(a, A) < centre(b, B) ? -1 : 1)
+        a[`v${axis}`] += push
+        b[`v${axis}`] -= push
+      }
+    }
+  }
+  force.initialize = (n) => (nodes = n)
+  return force
+}
+
 // The graph as the player may see it: hidden terms and unshown types are removed with their links, and a node left
 // without links goes too, unless it is a seed.
 export function visibleGraph(graph, isVisible, types) {
