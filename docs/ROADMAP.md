@@ -11,6 +11,7 @@ Arknights Lore Compendium turns a game screenshot into a map of connected lore. 
 | [v1.1](archive/v1.1-local-reader.md) | Local reader | Screenshots read by an open model on your machine, no API key |
 | [v2](archive/v2-accuracy.md) | Accuracy | 26 of 28 real screenshots need no chip edits, from 12 |
 | [v3](archive/v3-richer-lore.md) | Richer lore | Labeled, spoiler-safe lore maps from a list of stories read |
+| [v3.1](v3.1-sourced-summaries.md) | Sourced summaries | Every summary sentence gated on the story that told it |
 | [v4](v4-polish-and-reach.md) | Polish and reach | Deployed, shareable, multi-server |
 | [v5](v5-recall.md) | Recall | What changed when, searchable, replayable by chapter |
 
