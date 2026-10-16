@@ -68,7 +68,7 @@ export const BANDS = [
   ['crossover', 'Crossovers'],
 ]
 const PAD = 12 // canvas margin
-export const GAP = 16 // least space between two nodes, along a row and between rows
+export const GAP = 20 // least space between two nodes, along a row and between rows
 const NODE = 22 // a node's height
 const ROW = NODE + GAP // row pitch
 const HEAD = 22 // band title
