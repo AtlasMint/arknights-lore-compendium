@@ -5,7 +5,10 @@ import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
 const LABEL_BATCH = 10 // links per /labels call; about twenty seconds of the model's time when none is cached
-const RUN = 700 // ms the map takes to run into place when it is built
+const LINK = 70 // a link's length at rest
+const SPREAD = 2 * LINK // the length of the selected node's links, so their labels have room to be read
+const RUN = 700 // ms the map takes to run into place when it is built, or back when a node is deselected
+const STRETCH = 3000 // ms a selection takes to stretch into place: a slow, even drift, not a run
 const NAME_FONT = '10px system-ui, sans-serif' // .node text in index.css
 const UNSURE = 'is related to' // the label when the wiki doesn't say, backend/graph/labels.py
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
@@ -486,6 +489,11 @@ function Graph({ data, colors, selected, onSelect, label }) {
   const positions = useRef(new Map()) // where each node was, so ticking a story doesn't scatter the map
   const painted = useRef(false) // a frame has shown the map; before that, saved positions are a dev re-run's, not the player's
   const placed = useRef([]) // the simulation's links, which carry their ends' positions
+  const simulation = useRef()
+  const render = useRef(() => {}) // draws the simulation's current positions: at once, or over `duration` ms with `ease`
+  const zoom = useRef() // the zoom behaviour, so a selection can pan the view
+  const chosen = useRef(selected) // what the link force reads, so a rebuild keeps the selected node spread out
+  const length = (l) => (l.source.id === chosen.current || l.target.id === chosen.current ? SPREAD : LINK)
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
@@ -502,7 +510,8 @@ function Graph({ data, colors, selected, onSelect, label }) {
     })
 
     const root = svg.append('g')
-    svg.call(d3.zoom().scaleExtent([0.2, 8]).on('zoom', (event) => root.attr('transform', event.transform)))
+    zoom.current = d3.zoom().scaleExtent([0.2, 8]).on('zoom', (event) => root.attr('transform', event.transform))
+    svg.call(zoom.current)
     svg.on('click', (event) => event.target === svgRef.current && onSelect(null))
 
     const link = root
@@ -538,7 +547,7 @@ function Graph({ data, colors, selected, onSelect, label }) {
 
     const sim = d3
       .forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d) => d.id).distance(70))
+      .force('link', d3.forceLink(links).id((d) => d.id).distance(length))
       .force('charge', d3.forceManyBody().strength(-160))
       .force('collide', forceBoxes((d) => d.box)) // each node's shape and name, with half the gap all round
       .force('center', d3.forceCenter(width / 2, height / 2))
@@ -566,21 +575,28 @@ function Graph({ data, colors, selected, onSelect, label }) {
     settle(sim)
     draw(RUN)
     requestAnimationFrame(() => (painted.current = true))
+    simulation.current = sim
+    render.current = draw
 
+    // A drag runs the simulation live. It starts on the first move, not on mousedown, since every click is a mousedown
+    // too and a live run would overwrite the selection's transition.
+    let dragging = false
     node.call(
       d3
         .drag()
         .on('start', (event, d) => {
-          if (!event.active) sim.alphaTarget(0.3).restart()
           d.fx = d.x
           d.fy = d.y
         })
         .on('drag', (event, d) => {
+          if (!dragging) sim.alphaTarget(0.3).restart()
+          dragging = true
           d.fx = event.x
           d.fy = event.y
         })
         .on('end', (event, d) => {
-          if (!event.active) sim.alphaTarget(0)
+          if (dragging) sim.alphaTarget(0)
+          dragging = false
           d.fx = null
           d.fy = null
         }),
@@ -593,8 +609,41 @@ function Graph({ data, colors, selected, onSelect, label }) {
     }
   }, [data, colors, onSelect])
 
-  // Selecting a node lights it and its neighbours, dims the rest and writes the labels on its links, without
-  // restarting the layout.
+  // Selecting a node stretches its links to twice their length, so the labels on them can be read. Deselecting puts
+  // every node back where it was before the selection, since a link to a hub pulls too weakly to shrink back on its
+  // own. The layout is only nudged, never reshuffled.
+  const before = useRef(null) // positions when the selection began, by node
+  useEffect(() => {
+    const sim = simulation.current
+    if (!sim) return
+    if (selected && !before.current) before.current = new Map(sim.nodes().map((d) => [d.id, [d.x, d.y]]))
+    if (!selected && before.current) {
+      sim.nodes().forEach((d) => {
+        const was = before.current.get(d.id)
+        if (was) [d.x, d.y, d.vx, d.vy] = [...was, 0, 0]
+      })
+      before.current = null
+    }
+    chosen.current = selected
+    sim.stop() // a live run left from a drag would draw over the transition
+    sim.force('link').distance(length)
+    if (selected) {
+      sim.alpha(0.3)
+      settle(sim)
+      render.current(STRETCH, d3.easeSinInOut) // a gentle start and end, nothing sudden
+      // The view pans so the selected node ends up in the middle, at the current zoom, in step with the stretch.
+      const d = sim.nodes().find((n) => n.id === selected)
+      const { width, height } = svgRef.current.getBoundingClientRect()
+      const k = d3.zoomTransform(svgRef.current).k
+      d3.select(svgRef.current)
+        .transition()
+        .duration(STRETCH)
+        .ease(d3.easeSinInOut)
+        .call(zoom.current.transform, d3.zoomIdentity.translate(width / 2 - k * d.x, height / 2 - k * d.y).scale(k))
+    } else render.current(RUN) // back at the map's own pace
+  }, [selected]) // eslint-disable-line react-hooks/exhaustive-deps -- length reads `chosen`, set just above
+
+  // Selecting a node lights it and its neighbours, dims the rest and writes the labels on its links.
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     const near = new Set(
