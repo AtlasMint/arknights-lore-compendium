@@ -14,6 +14,12 @@ Take it from a personal tool to something other Arknights players can open on th
 - [ ] Touch-friendly graph: pinch to zoom, tap for details
 - [ ] Upload straight from the phone's photo library
 
+### Linked highlighting between the panel and the map
+- [ ] Hovering a connection in the detail panel's **Connections** list lights that link and its two nodes on the map and dims everything else, the same look the map already gives a selected node's neighbourhood; moving off restores it
+- [ ] The same on keyboard focus of the connection's name button, so it isn't mouse-only
+- [ ] Clicking the name keeps doing what it does: it selects that node
+- [ ] One piece of state, "the hovered link", read by the map's existing lit/dim classes; no second highlight style
+
 ### Sharing
 - [ ] Save a graph and get a shareable link
 - [ ] Read-only view for shared graphs
