@@ -1,6 +1,6 @@
 // Checks of the spoiler rule, the Episode tick chain, the fog and the stories layout. Run with: bun test
 import { expect, test } from 'bun:test'
-import { BANDS, GAP, layoutStories, learnedIn, toggleStory, uncovered, visibility, visibleGraph } from './lore.js'
+import { BANDS, GAP, layoutStories, learnedIn, readable, toggleStory, uncovered, visibility, visibleGraph } from './lore.js'
 
 const episodes = ['Prologue', 'Episode 01', 'Episode 02', 'Episode 03'].map((id, order) => ({ id, band: 'main', order }))
 const stories = [...episodes, { id: 'Vigilo', band: 'collection', order: 9 }]
@@ -49,6 +49,19 @@ test('a label shows with the first ticked story both ends share', () => {
   expect(learnedIn(link, new Set(['Episode 07']), false)).toEqual({ story: 'Episode 07' })
   expect(learnedIn(link, new Set(['Episode 01']), false)).toBe(null)
   expect(learnedIn({ stories: [] }, new Set(), true)).toEqual({ story: null })
+})
+
+test('a summary sentence waits for the story that told it, or for its terms when no story did', () => {
+  const summary = [
+    { text: 'profile', terms: [], story: null },
+    { text: 'rescued by the Doctor', terms: ['Doctor'], story: 'Babel (event)' },
+    { text: 'met Talulah', terms: ['Talulah'], story: null },
+  ]
+  const isVisible = (term) => term === 'Doctor'
+  const texts = (ticked, everything) => readable(summary, { ticked, everything, isVisible }).map((s) => s.text)
+  expect(texts(new Set(), false)).toEqual(['profile']) // the Doctor is visible, but Babel is unread
+  expect(texts(new Set(['Babel (event)']), false)).toEqual(['profile', 'rescued by the Doctor'])
+  expect(texts(new Set(), true)).toEqual(['profile', 'rescued by the Doctor']) // tick all: the story rule lifts, the term rule is the caller's
 })
 
 test('the fog leaves only the stories read, where storylines start, and the one step after either', () => {
