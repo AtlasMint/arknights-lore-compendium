@@ -189,12 +189,17 @@ export default function App() {
     )
   }
 
+  function clear() {
+    setGraph(null)
+    setSelected(null)
+    setStatus('Graph cleared. Your keywords are kept.')
+  }
+
   function restart() {
     shots.forEach((s) => URL.revokeObjectURL(s.preview))
     setShots([])
     setChips([])
-    setGraph(null)
-    setSelected(null)
+    clear()
     setStatus('New session: drop a screenshot or add keywords.')
   }
 
@@ -294,6 +299,9 @@ export default function App() {
             </select>
           </label>
           <button>Build graph</button>
+          <button type="button" onClick={clear} disabled={!graph}>
+            Clear graph
+          </button>
           <button type="button" onClick={restart}>
             New session
           </button>
