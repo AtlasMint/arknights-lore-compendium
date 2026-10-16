@@ -1,5 +1,5 @@
 """Offline checks for v3: node types and summaries, the stories timeline and its spoiler tags, the in-game years seed,
-relationship labels, the new endpoints, and the progress file that followed. No network and no Ollama: the wiki is
+relationship labels, the new endpoints, the progress file that followed, and v3.1's sourced summaries. No network and no Ollama: the wiki is
 fake and the model is stubbed.
 
     python -m tests.test_v3
@@ -46,9 +46,17 @@ PAGES = {
     "Babel (event)/Synopsis": "==Past==\nIn the year 1094, [[Theresa]] raises [[Amiya]].",
     "Talulah": "{{Character infobox|appearance = \n*[[Episode 02]]\n*[[Babel (event)]] (flashback)\n*[[Crossy]] (mentioned as the Snake)"
                "|affiliation = [[Reunion]] (leader)|family = \n*[[Ch'en|Ch'en Hui-chieh]]{{Status|deceased}} (half-sister)}}\n"
-               "'''Talulah''' is an [[NPC]]. She leads [[Reunion]].<ref>[[1-1]]</ref> [[File:T.png|thumb|A photo]]\n"
-               "==Background==\nTalulah grew up in [[Lungmen]] with her half-sister [[Ch'en]]. Later she met Amiya.",
+               "'''Talulah''' is an [[NPC]]. She leads [[Reunion]].<ref name=\"start\">[[1-1]]</ref> [[File:T.png|thumb|A photo]]\n"
+               "==Background==\nTalulah grew up in [[Lungmen]] with her half-sister [[Ch'en]]. Later she met Amiya. "
+               "She was raised by [[Theresa]].<ref>[[BB-4/Story#After operation|BB-4 After]]</ref> She is tall.<ref>pg. 5, a book</ref>\n"
+               "==Story==\n===Babel===\nYoung Talulah meets [[Theresa]].\n===Episode 02===\nShe fights in [[Lungmen]].<ref name=\"start\"/> "
+               "Then she leaves.\n===Episode 3===\nShe returns to Ursus.\n===Talulah: A Record===\nAn operator record, not a story.",
     "Ch'en": "{{Operator info|faction = Lungmen Guard Department}}",
+    "Ch'en/Story": "'''Ch'en''' is an operator. She is strict with herself.",
+    "Ch'en/File": "{{Archive|title = Profile|text = Senior Inspector of the [[Lungmen Guard Department]].<br/>She is strict.}}"
+                  "{{Archive|title = Archive File 1|text = Secret things.}}",
+    "1-1": "{{Operation info|episode = 01|name = Isolated Island|next = 1-2}}",
+    "BB-4": "{{Operation info|code = BB-4|name = Long Voyage|intermezzo = Babel (event)|event title = Babel}}",
     "Arknights Timeline": "==Common Era==\n===11th Century===\n====1090&ndash;1096====\n*'''Founding''': see [[Babel (event)]].\n"
                           "====1097====\n*'''Crisis''' (ca. 1097): See [[Episode 02]].{{Note|Not [[Babel (event)]].}}\n"
                           "==Crossover events==\n===Identified===\n*'''Visit''' (ca. 1098 ~ 1099): [[Crossy]] takes place.",
@@ -58,7 +66,7 @@ CATEGORIES = {
     "Crossy": ["Collaboration events", "Side Stories"], "Amiya": ["5-star", "Rhodes Island"], "Talulah": ["NPCs"],
     "Ch'en": ["6-star", "Lungmen Guard Department"], "Reunion": ["Enemy factions"], "Rhodes Island": ["Major factions"],
     "Lungmen": ["Major factions", "Nation-states"], "Lungmen Guard Department": ["Major factions"], "Theresa": ["NPCs"],
-    "Catastrophe": ["Lore"], "1-1": ["Main Theme operations"],
+    "Catastrophe": ["Lore"], "1-1": ["Main Theme operations"], "BB-4": ["Babel event"], "Ch'en/Story": [], "Ch'en/File": [],
 }
 wiki_client.all_pages = lambda: iter(
     [{"title": t, "categories": [{"title": f"Category:{c}"} for c in CATEGORIES.get(t, [])]} for t in {*PAGES, *CATEGORIES}]
@@ -83,6 +91,14 @@ def test_wikitext():
     assert said[0] == ("Talulah is an NPC.", ["NPC"])  # infobox, <ref> and file caption gone
     assert said[2] == ("Talulah grew up in Lungmen with her half-sister Ch'en.", ["Lungmen", "Ch'en"])
     assert ("family", "Ch'en Hui-chieh (half-sister)", ["Ch'en"]) in wikitext.infobox_lines(PAGES["Talulah"])
+    rows = wikitext.prose(PAGES["Talulah"])
+    assert rows[0] == ("", "Talulah is an NPC.", ["NPC"], "1-1")  # covered by the citation that closes its run
+    assert rows[2] == ("Background", "Talulah grew up in Lungmen with her half-sister Ch'en.", ["Lungmen", "Ch'en"], "BB-4/Story#After operation")
+    assert rows[5][1:] == ("She is tall.", [], None)  # a book: no link, nothing to resolve
+    assert rows[7] == ("Episode 02", "She fights in Lungmen.", ["Lungmen"], "1-1")  # <ref name=.../> reuse
+    assert wikitext.archive(PAGES["Ch'en/File"])[0] == ("Profile", [("Senior Inspector of the Lungmen Guard Department.", ["Lungmen Guard Department"]), ("She is strict.", [])])
+    assert stories.stage_stories({"1-1", "BB-4/Story#After operation", "Terra: A Journey"}) == {"1-1": "Episode 01", "BB-4/Story#After operation": "Babel (event)"}
+    assert [stories.story_named(h) for h in ("Episode 3", "Babel", "Talulah: A Record")] == ["Episode 03", "Babel (event)", None]
 
 
 def test_timeline():
@@ -116,8 +132,15 @@ def test_describe():
     assert nodes["Talulah"]["type"] == "Character" and nodes["Talulah"]["faction"] == "Reunion"  # from the infobox
     assert nodes["Ch'en"]["faction"] == "Lungmen Guard Department" and nodes["Reunion"]["faction"] == "Reunion"
     assert nodes["Lungmen"]["type"] == "Faction" and nodes["Lungmen"]["faction"] == "Lungmen"  # a faction is its own
-    assert nodes["Talulah"]["summary"][1] == {"text": "She leads Reunion.", "terms": ["Reunion"], "story": None}
-    assert {"text": "Later she met Amiya.", "terms": ["Amiya"], "story": None} in nodes["Talulah"]["summary"]  # named without a link
+    summary = nodes["Talulah"]["summary"]
+    assert summary[1] == {"text": "She leads Reunion.", "terms": ["Reunion"], "story": "Episode 01"}  # cited to stage 1-1
+    assert {"text": "Later she met Amiya.", "terms": ["Amiya"], "story": "Babel (event)"} in summary  # named without a link
+    # Four lead sentences, then one per story heading in Score order (Babel's Movement comes after the Episodes); the
+    # fifth lead sentence and the operator record are left out.
+    assert [s["story"] for s in summary] == ["Episode 01", "Episode 01", "Babel (event)", "Babel (event)", "Episode 02", "Episode 03", "Babel (event)"]
+    assert [s["text"] for s in summary[4:]] == ["She fights in Lungmen.", "She returns to Ursus.", "Young Talulah meets Theresa."]
+    assert nodes["Ch'en"]["summary"][:3] == [{"text": "Senior Inspector of the Lungmen Guard Department.", "terms": ["Lungmen Guard Department"], "story": None},
+                                            {"text": "She is strict.", "terms": [], "story": None}, {"text": "Ch'en is an operator.", "terms": ["Ch'en"], "story": None}]
     assert graph["tags"]["Talulah"] == ["Episode 01", "Episode 02", "Babel (event)"]  # not Crossy, under another name
     assert graph["tags"]["Amiya"] == ["Episode 01", "Babel (event)"]  # named in a summary, not a node
     link = next(l for l in graph["links"] if {l["source"], l["target"]} == {"Talulah", "Lungmen"})
