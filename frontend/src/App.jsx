@@ -5,6 +5,7 @@ import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
 const LABEL_BATCH = 10 // links per /labels call; about twenty seconds of the model's time when none is cached
+const RUN = 700 // ms the map takes to run into place when it is built
 const NAME_FONT = '10px system-ui, sans-serif' // .node text in index.css
 const UNSURE = 'is related to' // the label when the wiki doesn't say, backend/graph/labels.py
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
@@ -475,15 +476,22 @@ function Detail({ node, links, labels, ticked, everything, isVisible, storyNames
   )
 }
 
+// Runs a stopped simulation to its end at once: as many ticks as it would take live to cool from its alpha to alphaMin.
+function settle(sim) {
+  sim.tick(Math.ceil(Math.log(sim.alphaMin() / sim.alpha()) / Math.log(1 - sim.alphaDecay())))
+}
+
 function Graph({ data, colors, selected, onSelect, label }) {
   const svgRef = useRef(null)
   const positions = useRef(new Map()) // where each node was, so ticking a story doesn't scatter the map
+  const painted = useRef(false) // a frame has shown the map; before that, saved positions are a dev re-run's, not the player's
   const placed = useRef([]) // the simulation's links, which carry their ends' positions
 
   useEffect(() => {
     const svg = d3.select(svgRef.current)
     const { width, height } = svgRef.current.getBoundingClientRect()
-    const nodes = data.nodes.map((d) => ({ ...d, ...positions.current.get(d.id) })) // the simulation mutates these
+    const kept = (d) => (painted.current ? positions.current.get(d.id) : undefined)
+    const nodes = data.nodes.map((d) => ({ ...d, ...kept(d) })) // the simulation mutates these
     const links = data.links.map((d) => ({ ...d }))
     const radius = d3.scaleSqrt().domain(d3.extent(nodes, (d) => d.score)).range([4, 18])
     // Each node's box for the layout: its shape (a star or diamond of area πr² reaches 1.7r from its centre), its name
@@ -528,32 +536,42 @@ function Graph({ data, colors, selected, onSelect, label }) {
     const labelGroup = root.append('g').attr('class', 'link-labels') // over the nodes, so a label stays readable
     placed.current = links
 
-    const simulation = d3
+    const sim = d3
       .forceSimulation(nodes)
       .force('link', d3.forceLink(links).id((d) => d.id).distance(70))
       .force('charge', d3.forceManyBody().strength(-160))
       .force('collide', forceBoxes((d) => d.box)) // each node's shape and name, with half the gap all round
       .force('center', d3.forceCenter(width / 2, height / 2))
-      .on('tick', () => {
-        link
-          .attr('x1', (d) => d.source.x)
-          .attr('y1', (d) => d.source.y)
-          .attr('x2', (d) => d.target.x)
-          .attr('y2', (d) => d.target.y)
-        node.attr('transform', (d) => `translate(${d.x},${d.y})`)
-        labelGroup
-          .selectAll('text')
-          .attr('x', (d) => (d.source.x + d.target.x) / 2)
-          .attr('y', (d) => (d.source.y + d.target.y) / 2)
-        nodes.forEach((d) => positions.current.set(d.id, { x: d.x, y: d.y }))
-      })
-    if (nodes.every((d) => d.x !== undefined)) simulation.alpha(0.1) // only hidden nodes left: settle, don't re-shuffle
+      .stop() // never left running: the layout is settled in one go, and the map runs into it over a set time
+    nodes.forEach((d) => {
+      if (!kept(d)) [d.x, d.y] = [d.x + width / 2, d.y + height / 2] // new nodes start from the middle
+    })
+    const draw = (duration = 0, ease = d3.easeCubicOut) => {
+      const t = d3.transition().duration(duration).ease(ease)
+      const moving = (selection) => (duration ? selection.transition(t) : selection)
+      moving(link)
+        .attr('x1', (d) => d.source.x)
+        .attr('y1', (d) => d.source.y)
+        .attr('x2', (d) => d.target.x)
+        .attr('y2', (d) => d.target.y)
+      moving(node).attr('transform', (d) => `translate(${d.x},${d.y})`)
+      moving(labelGroup.selectAll('text'))
+        .attr('x', (d) => (d.source.x + d.target.x) / 2)
+        .attr('y', (d) => (d.source.y + d.target.y) / 2)
+      nodes.forEach((d) => positions.current.set(d.id, { x: d.x, y: d.y }))
+    }
+    sim.on('tick', () => draw()) // only a drag runs it live
+    if (nodes.every(kept)) sim.alpha(0.1) // only hidden nodes left: settle, don't re-shuffle
+    draw() // where everything starts
+    settle(sim)
+    draw(RUN)
+    requestAnimationFrame(() => (painted.current = true))
 
     node.call(
       d3
         .drag()
         .on('start', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0.3).restart()
+          if (!event.active) sim.alphaTarget(0.3).restart()
           d.fx = d.x
           d.fy = d.y
         })
@@ -562,14 +580,14 @@ function Graph({ data, colors, selected, onSelect, label }) {
           d.fy = event.y
         })
         .on('end', (event, d) => {
-          if (!event.active) simulation.alphaTarget(0)
+          if (!event.active) sim.alphaTarget(0)
           d.fx = null
           d.fy = null
         }),
     )
 
     return () => {
-      simulation.stop()
+      sim.stop()
       svg.on('.zoom', null).on('click', null)
       root.remove()
     }
