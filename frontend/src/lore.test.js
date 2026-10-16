@@ -1,6 +1,6 @@
 // Checks of the spoiler rule, the Episode tick chain, the fog and the stories layout. Run with: bun test
 import { expect, test } from 'bun:test'
-import { BANDS, GAP, layoutStories, learnedIn, readable, toggleStory, uncovered, visibility, visibleGraph } from './lore.js'
+import { BANDS, GAP, forceBoxes, layoutStories, learnedIn, readable, toggleStory, uncovered, visibility, visibleGraph } from './lore.js'
 
 const episodes = ['Prologue', 'Episode 01', 'Episode 02', 'Episode 03'].map((id, order) => ({ id, band: 'main', order }))
 const stories = [...episodes, { id: 'Vigilo', band: 'collection', order: 9 }]
@@ -62,6 +62,23 @@ test('a summary sentence waits for the story that told it, or for its terms when
   expect(texts(new Set(), false)).toEqual(['profile']) // the Doctor is visible, but Babel is unread
   expect(texts(new Set(['Babel (event)']), false)).toEqual(['profile', 'rescued by the Doctor'])
   expect(texts(new Set(), true)).toEqual(['profile', 'rescued by the Doctor']) // tick all: the story rule lifts, the term rule is the caller's
+})
+
+test('overlapping boxes are pushed apart along the axis that needs the smaller move, others left alone', () => {
+  const box = () => ({ x0: -10, x1: 50, y0: -10, y1: 10 }) // a node with its name to the right
+  const nodes = [
+    { x: 0, y: 0, vx: 0, vy: 0 },
+    { x: 40, y: 5, vx: 0, vy: 0 }, // overlaps the first by 20 along x and 15 along y
+    { x: 0, y: 100, vx: 0, vy: 0 }, // clear of both
+  ]
+  const force = forceBoxes(box, 1)
+  force.initialize(nodes)
+  force()
+  expect(nodes.map((n) => [n.vx, n.vy])).toEqual([
+    [0, -7.5], // the y overlap is the smaller: the upper one goes up, the lower down, half each
+    [0, 7.5],
+    [0, 0],
+  ])
 })
 
 test('the fog leaves only the stories read, where storylines start, and the one step after either', () => {
