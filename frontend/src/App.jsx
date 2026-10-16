@@ -557,8 +557,12 @@ function Graph({ data, colors, selected, onSelect, label }) {
       .forceSimulation(nodes)
       .force('link', d3.forceLink(links).id((d) => d.id).distance(length))
       .force('charge', d3.forceManyBody().strength(-160))
-      .force('collide', forceBoxes((d) => d.box)) // each node's shape and name, with half the gap all round
+      .force('collide', forceBoxes((d) => d.box, 0.5, 0.3)) // sideways moves count a third, so the map spreads wide first
       .force('center', d3.forceCenter(width / 2, height / 2))
+      // The canvas is wide, so the map settles wide: a pull towards the middle row much stronger than towards the
+      // middle column, and the box collision then spreads the nodes sideways.
+      .force('x', d3.forceX(width / 2).strength(0.005))
+      .force('y', d3.forceY(height / 2).strength(0.2))
       .stop() // never left running: the layout is settled in one go, and the map runs into it over a set time
     nodes.forEach((d) => {
       if (!kept(d)) [d.x, d.y] = [d.x + width / 2, d.y + height / 2] // new nodes start from the middle

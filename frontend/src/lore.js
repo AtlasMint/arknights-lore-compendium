@@ -27,9 +27,10 @@ export function measure(text, font = '12px system-ui, sans-serif') {
 
 // Keeps the nodes' boxes (the shape and its name) from overlapping: d3's collide force, for boxes instead of circles.
 // `box(node)` gives the box's edges relative to the node's centre. Each tick, every overlapping pair is pushed apart
-// along the axis that needs the smaller move, like forceCollide's strength on the overlap.
+// along the axis that needs the smaller move, like forceCollide's strength on the overlap. `sideways` below 1 makes a
+// sideways move count as cheaper by that factor, so a layout spreads wide before it spreads tall.
 // ponytail: every pair is checked, O(n²); fine for the 150 nodes a map holds, a quadtree if that ever grows
-export function forceBoxes(box, strength = 0.5) {
+export function forceBoxes(box, strength = 0.5, sideways = 1) {
   let nodes
   const force = () => {
     for (let i = 0; i < nodes.length; i++) {
@@ -39,7 +40,7 @@ export function forceBoxes(box, strength = 0.5) {
         const dx = Math.min(a.x + A.x1 - (b.x + B.x0), b.x + B.x1 - (a.x + A.x0)) // how far the boxes overlap along x
         const dy = Math.min(a.y + A.y1 - (b.y + B.y0), b.y + B.y1 - (a.y + A.y0))
         if (dx <= 0 || dy <= 0) continue
-        const axis = dx < dy ? 'x' : 'y'
+        const axis = dx * sideways < dy ? 'x' : 'y'
         const centre = (n, box) => (axis === 'x' ? n.x + (box.x0 + box.x1) / 2 : n.y + (box.y0 + box.y1) / 2)
         const push = (((axis === 'x' ? dx : dy) * strength) / 2) * (centre(a, A) < centre(b, B) ? -1 : 1)
         a[`v${axis}`] += push
