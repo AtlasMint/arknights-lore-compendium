@@ -1,6 +1,6 @@
 import * as d3 from 'd3'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { GAP, learnedIn, visibility, visibleGraph } from './lore.js'
+import { GAP, learnedIn, readable, visibility, visibleGraph } from './lore.js'
 import Stories from './Stories.jsx'
 
 const WIKI = 'https://arknights.wiki.gg/wiki/'
@@ -384,11 +384,12 @@ export default function App() {
   )
 }
 
-// What the player may know about one node: its summary without sentences that name a hidden term, and its links with
-// the labels learned in a ticked story.
+// What the player may know about one node: the summary sentences the stories read have told, grouped by story after the
+// ones from no story in particular, and its links with the labels learned in a ticked story.
 function Detail({ node, links, labels, ticked, everything, isVisible, storyNames, overrides, setOverrides, shot, onSelect }) {
-  const sentences = node.summary.filter((s) => s.terms.every(isVisible))
+  const sentences = readable(node.summary, { ticked, everything, isVisible })
   const withheld = node.summary.length - sentences.length
+  const lead = sentences.filter((s) => !s.story)
   return (
     <aside className="detail" aria-label={`About ${node.id}`}>
       <button type="button" className="close" aria-label="Close" onClick={() => onSelect(null)}>
@@ -404,7 +405,16 @@ function Detail({ node, links, labels, ticked, everything, isVisible, storyNames
           .filter(Boolean)
           .join(' · ')}
       </p>
-      <p>{sentences.map((s) => s.text).join(' ') || 'Nothing you have read yet.'}</p>
+      {(lead.length > 0 || sentences.length === 0) && <p>{lead.map((s) => s.text).join(' ') || 'Nothing you have read yet.'}</p>}
+      {d3.groups(
+        sentences.filter((s) => s.story),
+        (s) => s.story,
+      ).map(([story, said]) => (
+        <p key={story}>
+          {said.map((s) => s.text).join(' ')}
+          <span className="meta"> · learned in {storyNames[story] ?? story}</span>
+        </p>
+      ))}
       {withheld > 0 && <p className="meta">{withheld} more sentence{withheld > 1 ? 's' : ''} once you read further.</p>}
       <h3>Connections</h3>
       {links.some((l) => !learnedIn(l, ticked, everything)) && (

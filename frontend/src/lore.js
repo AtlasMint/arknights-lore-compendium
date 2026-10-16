@@ -11,6 +11,12 @@ export function visibility({ tags, ticked, everything, overrides, seeds }) {
   }
 }
 
+// The summary sentences the player may read: one told by a story they have ticked, or one with no story that names
+// only visible terms. With every story ticked, all of them.
+export function readable(summary, { ticked, everything, isVisible }) {
+  return summary.filter((s) => (s.story ? everything || ticked.has(s.story) : s.terms.every(isVisible)))
+}
+
 // The graph as the player may see it: hidden terms and unshown types are removed with their links, and a node left
 // without links goes too, unless it is a seed.
 export function visibleGraph(graph, isVisible, types) {
