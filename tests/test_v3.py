@@ -99,6 +99,9 @@ def test_wikitext():
     assert wikitext.archive(PAGES["Ch'en/File"])[0] == ("Profile", [("Senior Inspector of the Lungmen Guard Department.", ["Lungmen Guard Department"]), ("She is strict.", [])])
     assert stories.stage_stories({"1-1", "BB-4/Story#After operation", "Terra: A Journey"}) == {"1-1": "Episode 01", "BB-4/Story#After operation": "Babel (event)"}
     assert [stories.story_named(h) for h in ("Episode 3", "Babel", "Talulah: A Record")] == ["Episode 03", "Babel (event)", None]
+    # A ref the parser reads as holding the next one, as on the wiki's Arknights Timeline, cites that one's stage.
+    nested = "Founded long ago here.<ref>p. 151, a book <ref>[[10-19]]</ref> and more</ref> The rebels won the war.<ref>[[1-1]]</ref>"
+    assert [row[3] for row in wikitext.prose(nested)] == ["10-19", "1-1"]
 
 
 def test_timeline():

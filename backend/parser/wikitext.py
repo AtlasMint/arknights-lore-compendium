@@ -63,7 +63,10 @@ def _cite(code):
         contents = body(ref) if body(ref) is not None else defined.get(attr(ref, "name"))
         links = contents.filter_wikilinks() if contents is not None else []
         cites.append(str(links[0].title).strip() if links else None)
-        code.replace(ref, f"\ue000{i}\ue001")
+        try:
+            code.replace(ref, f"\ue000{i}\ue001")
+        except ValueError:  # gone with a ref around it: an unclosed one swallows the next (Arknights Timeline)
+            pass
     return cites
 
 
