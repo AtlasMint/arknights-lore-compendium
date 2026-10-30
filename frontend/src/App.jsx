@@ -11,6 +11,7 @@ const RUN = 700 // ms the map takes to run into place when it is built, or back 
 const STRETCH = 3000 // ms a selection takes to stretch into place: a slow, even drift, not a run
 const NAME_FONT = '10px system-ui, sans-serif' // .node text in index.css
 const UNSURE = 'is related to' // the label when the wiki doesn't say, backend/graph/labels.py
+const NARROW = '(max-width: 640px)' // index.css: a phone, where the legend starts folded and the panel sits under the map
 // Map-legend shapes: what a node is. Colour is kept for which faction it belongs to.
 const TYPES = [
   ['Operator', d3.symbolCircle],
@@ -46,6 +47,7 @@ export default function App() {
     { title: 'Reunion', on: true },
   ])
   const [shots, setShots] = useState([]) // this session's screenshots: {n, preview, reading}
+  const shotCount = useRef(0) // numbers them, so several picked at once each get their own
   const [draft, setDraft] = useState('')
   const [suggestions, setSuggestions] = useState([])
   const [depth, setDepth] = useState(1)
@@ -59,6 +61,7 @@ export default function App() {
   const [labels, setLabels] = useState({}) // "source\ntarget" -> {from, relation, to}
   const [labelError, setLabelError] = useState('')
   const [selected, setSelected] = useState(null)
+  const [narrow] = useState(() => matchMedia(NARROW).matches)
 
   // JSON from the backend, or null after putting the reason in the status line.
   async function api(url, options) {
@@ -160,8 +163,7 @@ export default function App() {
 
   // Each screenshot adds its keywords to the session's; a keyword already there keeps the screenshot that brought it.
   async function analyze(file) {
-    if (!file) return
-    const n = (shots.at(-1)?.n ?? 0) + 1
+    const n = ++shotCount.current
     const preview = URL.createObjectURL(file)
     setShots((old) => [...old, { n, preview, reading: null }])
     setStatus(`Reading screenshot ${n}…`)
@@ -189,6 +191,11 @@ export default function App() {
     )
   }
 
+  // Several screenshots at once, as a phone's photo library hands them over, read one after another in the order given.
+  async function pick(files) {
+    for (const file of files) await analyze(file)
+  }
+
   function clear() {
     setGraph(null)
     setSelected(null)
@@ -198,6 +205,7 @@ export default function App() {
   function restart() {
     shots.forEach((s) => URL.revokeObjectURL(s.preview))
     setShots([])
+    shotCount.current = 0
     setChips([])
     clear()
     setStatus('New session: drop a screenshot or add keywords.')
@@ -243,11 +251,21 @@ export default function App() {
             onDragOver={(e) => e.preventDefault()}
             onDrop={(e) => {
               e.preventDefault()
-              analyze(e.dataTransfer.files[0])
+              pick([...e.dataTransfer.files])
             }}
           >
-            Drop a story screenshot here, or{' '}
-            <input type="file" accept="image/png,image/jpeg,image/webp" onChange={(e) => analyze(e.target.files[0])} />
+            <input
+              type="file"
+              className="visually-hidden"
+              accept="image/png,image/jpeg,image/webp"
+              multiple
+              onChange={(e) => {
+                const files = [...e.target.files]
+                e.target.value = '' // so the same screenshot picked again is read again
+                pick(files)
+              }}
+            />
+            Add story screenshots<span className="hint">, or drop them here</span>
           </label>
           {shots.map((s) => (
             <figure key={s.n} className="shot">
@@ -334,6 +352,8 @@ export default function App() {
             }}
           />
           <aside className="legend" aria-label="Legend">
+            <details open={!narrow}>
+            <summary>Legend</summary>
             <fieldset>
               <legend>Show</legend>
               {TYPES.map(([type, shape]) => (
@@ -381,6 +401,7 @@ export default function App() {
               </details>
             )}
             {labelError && <p>Labels: {labelError}</p>}
+            </details>
           </aside>
           {node && (
             <Detail
@@ -540,6 +561,7 @@ function Graph({ data, colors, selected, onSelect, label }) {
       .attr('aria-label', (d) => `${d.id}, ${d.type}${d.faction && d.faction !== d.id ? ` of ${d.faction}` : ''}`)
       .on('click', (event, d) => onSelect(d.id))
       .on('keydown', (event, d) => (event.key === 'Enter' || event.key === ' ') && onSelect(d.id))
+    node.append('circle').attr('class', 'hit').attr('r', (d) => Math.max(radius(d.score), 12)) // a fingertip's worth to tap
     node
       .append('path')
       .attr('d', (d) => d3.symbol(SHAPES[d.type] ?? d3.symbolCross, Math.PI * radius(d.score) ** 2)())
@@ -586,16 +608,24 @@ function Graph({ data, colors, selected, onSelect, label }) {
     draw() // where everything starts
     settle(sim)
     draw(RUN)
+    // A phone shows a slice of the map at reading size, so a new map starts on its keywords, not the layout's middle.
+    const seeds = nodes.filter((d) => d.seed)
+    if (matchMedia(NARROW).matches && !nodes.every(kept) && seeds.length) {
+      const [x, y] = [d3.mean(seeds, (d) => d.x), d3.mean(seeds, (d) => d.y)]
+      svg.call(zoom.current.transform, d3.zoomIdentity.translate(width / 2 - x, height / 2 - y))
+    }
     requestAnimationFrame(() => (painted.current = true))
     simulation.current = sim
     render.current = draw
 
     // A drag runs the simulation live. It starts on the first move, not on mousedown, since every click is a mousedown
-    // too and a live run would overwrite the selection's transition.
+    // too and a live run would overwrite the selection's transition. Fingers are left to the map, so a pinch that
+    // starts on a node still zooms; a tap still selects.
     let dragging = false
     node.call(
       d3
         .drag()
+        .filter((event) => !event.ctrlKey && !event.button && !event.touches)
         .on('start', (event, d) => {
           d.fx = d.x
           d.fy = d.y
